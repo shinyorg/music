@@ -15,8 +15,7 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
 
-        builder.Services.AddSingleton<IMediaLibrary, MediaLibrary>();
-        builder.Services.AddSingleton<IMusicPlayer, MusicPlayer>();
+        builder.Services.AddShinyMusic();
         builder.Services.AddTransient<MainPage>();
 
         return builder.Build();

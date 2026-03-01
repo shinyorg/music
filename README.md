@@ -15,8 +15,7 @@ Add a project reference to `Shiny.Music` from your .NET MAUI or platform-specifi
 
 ```csharp
 // Register in MauiProgram.cs
-builder.Services.AddSingleton<IMediaLibrary, MediaLibrary>();
-builder.Services.AddSingleton<IMusicPlayer, MusicPlayer>();
+builder.Services.AddShinyMusic();
 
 // Use via dependency injection
 public class MyPage

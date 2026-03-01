@@ -1,0 +1,60 @@
+name: Sync Skills to Skills Repository
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'skills/**'
+  workflow_dispatch:
+
+jobs:
+  sync-skills:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Checkout skills repository
+        uses: actions/checkout@v4
+        with:
+          repository: shinyorg/skills
+          token: ${{ secrets.SKILLS_REPO_TOKEN }}
+          path: skills-repo
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync skills directory
+        run: |
+          if [ -d "source/skills/shiny-music" ]; then
+            rm -rf skills-repo/skills/shiny-music
+            mkdir -p skills-repo/skills
+            cp -r source/skills/shiny-music skills-repo/skills/
+          fi
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.SKILLS_REPO_TOKEN }}
+          path: skills-repo
+          commit-message: "Update shiny-music skill from music repository"
+          title: "Update shiny-music skill"
+          body: |
+            This PR updates the shiny-music skill from the [music repository](https://github.com/shinyorg/music).
+
+            **Source commit:** ${{ github.sha }}
+            **Triggered by:** @${{ github.actor }}
+
+            ---
+            *This PR was automatically created by the [sync-skills workflow](https://github.com/shinyorg/music/actions/workflows/sync-skills.yml).*
+          branch: update-shiny-music-skill
+          delete-branch: true
+          labels: |
+            automated
+            skills-update

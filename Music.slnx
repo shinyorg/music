@@ -1,8 +1,16 @@
 <Solution>
-  <Folder Name="/sample/">
-    <Project Path="sample/MusicSample/MusicSample.csproj" />
+  <Folder Name="/Solution/">
+    <File Path=".github\workflows\build.yml" />
+    <File Path=".github\workflows\sync-skills.yml" />
+    <File Path="Directory.build.props" />
+    <File Path="Directory.packages.props" />
+    <File Path="global.json" />
+    <File Path="nuget.png" />
+    <File Path="nuget.txt" />
+    <File Path="README.md" />
+    <File Path="skills\shiny-music\SKILL.md" />
+    <File Path="version.json" />
   </Folder>
-  <Folder Name="/src/">
-    <Project Path="src/Shiny.Music/Shiny.Music.csproj" />
-  </Folder>
+  <Project Path="sample/MusicSample/MusicSample.csproj" />
+  <Project Path="src/Shiny.Music/Shiny.Music.csproj" />
 </Solution>
