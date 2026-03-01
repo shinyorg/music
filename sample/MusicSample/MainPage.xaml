@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MusicSample.MainPage"
+             Title="Music Library">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="16" RowSpacing="12">
+
+        <!-- Permission Section -->
+        <VerticalStackLayout Grid.Row="0" Spacing="8">
+            <Label Text="Permission" FontAttributes="Bold" FontSize="18" />
+            <HorizontalStackLayout Spacing="12">
+                <Button x:Name="BtnRequestPermission"
+                        Text="Request Permission"
+                        Clicked="OnRequestPermission" />
+                <Label x:Name="LblPermissionStatus"
+                       Text="Unknown"
+                       VerticalOptions="Center"
+                       FontSize="14" />
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+
+        <!-- Search Section -->
+        <HorizontalStackLayout Grid.Row="1" Spacing="8">
+            <Entry x:Name="EntrySearch"
+                   Placeholder="Search tracks..."
+                   WidthRequest="200" />
+            <Button Text="Search" Clicked="OnSearch" />
+            <Button Text="Load All" Clicked="OnLoadAll" />
+        </HorizontalStackLayout>
+
+        <!-- Track List -->
+        <CollectionView Grid.Row="2"
+                        x:Name="TrackList"
+                        SelectionMode="Single"
+                        SelectionChanged="OnTrackSelected">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="8,4" ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout>
+                            <Label Text="{Binding Title}" FontAttributes="Bold" FontSize="14" />
+                            <Label FontSize="12" TextColor="Gray">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="{Binding Artist}" />
+                                        <Span Text=" — " />
+                                        <Span Text="{Binding Album}" />
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1"
+                               Text="{Binding Duration, StringFormat='{0:mm\\:ss}'}"
+                               VerticalOptions="Center"
+                               FontSize="12"
+                               TextColor="Gray" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+            <CollectionView.EmptyView>
+                <Label Text="No tracks loaded. Request permission first, then tap 'Load All'."
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                       TextColor="Gray"
+                       Margin="20" />
+            </CollectionView.EmptyView>
+        </CollectionView>
+
+        <!-- Playback Controls -->
+        <Grid Grid.Row="3" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto,Auto,Auto,Auto" RowSpacing="4">
+            <Label x:Name="LblNowPlaying"
+                   Text="Nothing playing"
+                   FontSize="14"
+                   FontAttributes="Bold"
+                   Grid.ColumnSpan="5"
+                   LineBreakMode="TailTruncation" />
+
+            <Label x:Name="LblPlaybackState"
+                   Grid.Row="1"
+                   Text="Stopped"
+                   FontSize="12"
+                   VerticalOptions="Center"
+                   TextColor="Gray" />
+            <Button x:Name="BtnPlay"
+                    Grid.Row="1" Grid.Column="1"
+                    Text="▶"
+                    WidthRequest="50"
+                    Clicked="OnPlay" />
+            <Button x:Name="BtnPause"
+                    Grid.Row="1" Grid.Column="2"
+                    Text="⏸"
+                    WidthRequest="50"
+                    Clicked="OnPause" />
+            <Button x:Name="BtnStop"
+                    Grid.Row="1" Grid.Column="3"
+                    Text="⏹"
+                    WidthRequest="50"
+                    Clicked="OnStop" />
+            <Button x:Name="BtnCopy"
+                    Grid.Row="1" Grid.Column="4"
+                    Text="Copy"
+                    Clicked="OnCopy" />
+        </Grid>
+    </Grid>
+
+</ContentPage>

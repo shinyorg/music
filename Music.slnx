@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/sample/">
+    <Project Path="sample/MusicSample/MusicSample.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Shiny.Music/Shiny.Music.csproj" />
+  </Folder>
+</Solution>
