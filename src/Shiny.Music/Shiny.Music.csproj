@@ -12,7 +12,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Maui.Essentials"/>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
         <PackageReference Include="Nerdbank.GitVersioning">
             <PrivateAssets>all</PrivateAssets>
@@ -20,7 +19,6 @@
         </PackageReference>
     </ItemGroup>
 
-    <!-- Exclude platform folders from default compilation, then include per-platform -->
     <ItemGroup>
         <Compile Remove="Platforms\**\*.cs"/>
     </ItemGroup>
