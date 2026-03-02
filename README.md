@@ -1,5 +1,9 @@
 # Shiny.Music
 
+[![NuGet](https://img.shields.io/nuget/v/Shiny.Music.svg)](https://www.nuget.org/packages/Shiny.Music/)
+
+[![Documentation](https://img.shields.io/badge/docs-shinylib.net-blue)](https://shinylib.net/client/music)
+
 A .NET library for accessing the device music library on **Android** and **iOS**. Provides a unified API for:
 
 - 🔐 Requesting permissions to access music
