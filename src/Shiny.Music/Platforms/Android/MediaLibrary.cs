@@ -193,6 +193,7 @@ public class MediaLibrary : IMediaLibrary
             Genre: null,
             Duration: TimeSpan.FromMilliseconds(durationMs),
             AlbumArtUri: albumArtUri?.ToString(),
+            IsExplicit: null,
             ContentUri: contentUri?.ToString() ?? string.Empty
         );
     }

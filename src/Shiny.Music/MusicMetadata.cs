@@ -10,6 +10,11 @@ namespace Shiny.Music;
 /// <param name="Genre">The genre of the track, or <c>null</c> if not available.</param>
 /// <param name="Duration">The playback duration of the track.</param>
 /// <param name="AlbumArtUri">A URI pointing to the album artwork image. Available on Android via MediaStore; <c>null</c> on iOS where artwork is accessed through MPMediaItem.Artwork.</param>
+/// <param name="IsExplicit">
+/// Indicates whether the track is marked as explicit content.
+/// <c>true</c> if explicit, <c>false</c> if not, <c>null</c> if the platform does not provide this information.
+/// Currently only available on iOS via <c>MPMediaItem.IsExplicitItem</c>; always <c>null</c> on Android.
+/// </param>
 /// <param name="ContentUri">
 /// A URI that can be used for playback and file operations.
 /// On Android this is a <c>content://</c> URI from MediaStore.
@@ -25,5 +30,6 @@ public record MusicMetadata(
     string? Genre,
     TimeSpan Duration,
     string? AlbumArtUri,
+    bool? IsExplicit,
     string ContentUri
 );

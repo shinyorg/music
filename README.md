@@ -148,6 +148,7 @@ No special entitlements are required beyond the Info.plist usage description. Th
 | `Genre` | `string?` | Genre (may be null) |
 | `Duration` | `TimeSpan` | Track duration |
 | `AlbumArtUri` | `string?` | Album art URI (Android only; null on iOS) |
+| `IsExplicit` | `bool?` | Whether the track is marked as explicit content. iOS only via `MPMediaItem.IsExplicitItem`; always `null` on Android. |
 | `ContentUri` | `string` | URI used for playback and file operations |
 
 ## Sample App

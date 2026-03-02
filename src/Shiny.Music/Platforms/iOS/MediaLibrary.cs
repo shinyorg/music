@@ -141,6 +141,7 @@ public class MediaLibrary : IMediaLibrary
             Genre: item.Genre,
             Duration: TimeSpan.FromSeconds(item.PlaybackDuration),
             AlbumArtUri: null, // iOS album art is accessed via MPMediaItem.Artwork, not a URI
+            IsExplicit: item.IsExplicitItem,
             ContentUri: item.AssetURL?.AbsoluteString ?? string.Empty
         );
     }
