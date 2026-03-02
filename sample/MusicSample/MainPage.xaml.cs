@@ -4,17 +4,17 @@ namespace MusicSample;
 
 public partial class MainPage : ContentPage
 {
-    readonly IMediaLibrary _mediaLibrary;
-    readonly IMusicPlayer _musicPlayer;
-    MusicMetadata? _selectedTrack;
+    readonly IMediaLibrary mediaLibrary;
+    readonly IMusicPlayer musicPlayer;
+    MusicMetadata? selectedTrack;
 
     public MainPage(IMediaLibrary mediaLibrary, IMusicPlayer musicPlayer)
     {
         InitializeComponent();
-        _mediaLibrary = mediaLibrary;
-        _musicPlayer = musicPlayer;
+        this.mediaLibrary = mediaLibrary;
+        this.musicPlayer = musicPlayer;
 
-        _musicPlayer.StateChanged += (_, state) =>
+        this.musicPlayer.StateChanged += (_, state) =>
         {
             MainThread.BeginInvokeOnMainThread(() =>
             {
@@ -22,7 +22,7 @@ public partial class MainPage : ContentPage
             });
         };
 
-        _musicPlayer.PlaybackCompleted += (_, _) =>
+        this.musicPlayer.PlaybackCompleted += (_, _) =>
         {
             MainThread.BeginInvokeOnMainThread(() =>
             {
@@ -35,11 +35,11 @@ public partial class MainPage : ContentPage
     {
         try
         {
-            var status = await _mediaLibrary.RequestPermissionAsync();
+            var status = await this.mediaLibrary.RequestPermissionAsync();
             LblPermissionStatus.Text = status.ToString();
 
             if (status == Shiny.Music.PermissionStatus.Granted)
-                await LoadTracks();
+                await this.LoadTracks();
         }
         catch (Exception ex)
         {
@@ -49,7 +49,7 @@ public partial class MainPage : ContentPage
 
     async void OnLoadAll(object? sender, EventArgs e)
     {
-        await LoadTracks();
+        await this.LoadTracks();
     }
 
     async void OnSearch(object? sender, EventArgs e)
@@ -57,13 +57,13 @@ public partial class MainPage : ContentPage
         var query = EntrySearch.Text?.Trim();
         if (string.IsNullOrEmpty(query))
         {
-            await LoadTracks();
+            await this.LoadTracks();
             return;
         }
 
         try
         {
-            var tracks = await _mediaLibrary.SearchTracksAsync(query);
+            var tracks = await this.mediaLibrary.SearchTracksAsync(query);
             TrackList.ItemsSource = tracks;
             Title = $"Music Library ({tracks.Count} results)";
         }
@@ -75,14 +75,14 @@ public partial class MainPage : ContentPage
 
     void OnTrackSelected(object? sender, SelectionChangedEventArgs e)
     {
-        _selectedTrack = e.CurrentSelection.FirstOrDefault() as MusicMetadata;
-        if (_selectedTrack != null)
-            LblNowPlaying.Text = $"{_selectedTrack.Title} - {_selectedTrack.Artist}";
+        this.selectedTrack = e.CurrentSelection.FirstOrDefault() as MusicMetadata;
+        if (this.selectedTrack != null)
+            LblNowPlaying.Text = $"{this.selectedTrack.Title} - {this.selectedTrack.Artist}";
     }
 
     async void OnPlay(object? sender, EventArgs e)
     {
-        if (_selectedTrack == null)
+        if (this.selectedTrack == null)
         {
             await DisplayAlertAsync("Info", "Select a track first", "OK");
             return;
@@ -90,7 +90,7 @@ public partial class MainPage : ContentPage
 
         try
         {
-            await _musicPlayer.PlayAsync(_selectedTrack);
+            await this.musicPlayer.PlayAsync(this.selectedTrack);
         }
         catch (Exception ex)
         {
@@ -98,12 +98,23 @@ public partial class MainPage : ContentPage
         }
     }
 
-    void OnPause(object? sender, EventArgs e) => _musicPlayer.Pause();
-    void OnStop(object? sender, EventArgs e) => _musicPlayer.Stop();
+    void OnPause(object? sender, EventArgs e) => this.musicPlayer.Pause();
+    void OnStop(object? sender, EventArgs e) => this.musicPlayer.Stop();
+
+    async void OnInfo(object? sender, EventArgs e)
+    {
+        if (this.selectedTrack == null)
+        {
+            await DisplayAlertAsync("Info", "Select a track first", "OK");
+            return;
+        }
+
+        await Navigation.PushAsync(new TrackDetailPage(this.selectedTrack));
+    }
 
     async void OnCopy(object? sender, EventArgs e)
     {
-        if (_selectedTrack == null)
+        if (this.selectedTrack == null)
         {
             await DisplayAlertAsync("Info", "Select a track first", "OK");
             return;
@@ -112,10 +123,10 @@ public partial class MainPage : ContentPage
         try
         {
             var destDir = Path.Combine(FileSystem.AppDataDirectory, "CopiedMusic");
-            var safeTitle = string.Join("_", _selectedTrack.Title.Split(Path.GetInvalidFileNameChars()));
+            var safeTitle = string.Join("_", (this.selectedTrack.Title ?? "track").Split(Path.GetInvalidFileNameChars()));
             var destPath = Path.Combine(destDir, $"{safeTitle}.m4a");
 
-            var success = await _mediaLibrary.CopyTrackAsync(_selectedTrack, destPath);
+            var success = await this.mediaLibrary.CopyTrackAsync(this.selectedTrack, destPath);
             if (success)
                 await DisplayAlertAsync("Success", $"Copied to:\n{destPath}", "OK");
             else
@@ -131,7 +142,7 @@ public partial class MainPage : ContentPage
     {
         try
         {
-            var tracks = await _mediaLibrary.GetAllTracksAsync();
+            var tracks = await this.mediaLibrary.GetAllTracksAsync();
             TrackList.ItemsSource = tracks;
             Title = $"Music Library ({tracks.Count} tracks)";
         }

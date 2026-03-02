@@ -67,12 +67,12 @@
         </CollectionView>
 
         <!-- Playback Controls -->
-        <Grid Grid.Row="3" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto,Auto,Auto,Auto" RowSpacing="4">
+        <Grid Grid.Row="3" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" RowSpacing="4">
             <Label x:Name="LblNowPlaying"
                    Text="Nothing playing"
                    FontSize="14"
                    FontAttributes="Bold"
-                   Grid.ColumnSpan="5"
+                   Grid.ColumnSpan="6"
                    LineBreakMode="TailTruncation" />
 
             <Label x:Name="LblPlaybackState"
@@ -81,23 +81,28 @@
                    FontSize="12"
                    VerticalOptions="Center"
                    TextColor="Gray" />
-            <Button x:Name="BtnPlay"
+            <Button x:Name="BtnInfo"
                     Grid.Row="1" Grid.Column="1"
+                    Text="ℹ️"
+                    WidthRequest="50"
+                    Clicked="OnInfo" />
+            <Button x:Name="BtnPlay"
+                    Grid.Row="1" Grid.Column="2"
                     Text="▶"
                     WidthRequest="50"
                     Clicked="OnPlay" />
             <Button x:Name="BtnPause"
-                    Grid.Row="1" Grid.Column="2"
+                    Grid.Row="1" Grid.Column="3"
                     Text="⏸"
                     WidthRequest="50"
                     Clicked="OnPause" />
             <Button x:Name="BtnStop"
-                    Grid.Row="1" Grid.Column="3"
+                    Grid.Row="1" Grid.Column="4"
                     Text="⏹"
                     WidthRequest="50"
                     Clicked="OnStop" />
             <Button x:Name="BtnCopy"
-                    Grid.Row="1" Grid.Column="4"
+                    Grid.Row="1" Grid.Column="5"
                     Text="Copy"
                     Clicked="OnCopy" />
         </Grid>

@@ -5,105 +5,116 @@ namespace Shiny.Music;
 
 public class MusicPlayer : IMusicPlayer
 {
-    AVAudioPlayer? _player;
-    MusicMetadata? _currentTrack;
-    PlaybackState _state = PlaybackState.Stopped;
+    AVPlayer? player;
+    NSObject? completionObserver;
+    MusicMetadata? currentTrack;
+    PlaybackState state = PlaybackState.Stopped;
 
-    public PlaybackState State => _state;
-    public MusicMetadata? CurrentTrack => _currentTrack;
+    public PlaybackState State => this.state;
+    public MusicMetadata? CurrentTrack => this.currentTrack;
 
     public TimeSpan Position =>
-        _player != null ? TimeSpan.FromSeconds(_player.CurrentTime) : TimeSpan.Zero;
+        this.player?.CurrentTime is not null
+            ? TimeSpan.FromSeconds(this.player.CurrentTime.Seconds)
+            : TimeSpan.Zero;
 
     public TimeSpan Duration =>
-        _player != null ? TimeSpan.FromSeconds(_player.Duration) : TimeSpan.Zero;
+        this.player?.CurrentItem?.Duration is not null && !double.IsNaN(this.player.CurrentItem.Duration.Seconds)
+            ? TimeSpan.FromSeconds(this.player.CurrentItem.Duration.Seconds)
+            : TimeSpan.Zero;
 
     public event EventHandler<PlaybackState>? StateChanged;
     public event EventHandler? PlaybackCompleted;
 
     public Task PlayAsync(MusicMetadata track)
     {
-        Stop();
+        this.Stop();
+
+        if (string.IsNullOrEmpty(track.ContentUri))
+            throw new InvalidOperationException("Cannot play track: ContentUri is empty (likely DRM-protected).");
 
         var url = NSUrl.FromString(track.ContentUri);
         if (url == null)
             throw new InvalidOperationException($"Cannot play track: invalid content URI '{track.ContentUri}'");
 
-        // Activate audio session for playback
         var audioSession = AVAudioSession.SharedInstance();
         audioSession.SetCategory(AVAudioSessionCategory.Playback);
         audioSession.SetActive(true);
 
-        _player = AVAudioPlayer.FromUrl(url, out var error);
-        if (_player == null || error != null)
-            throw new InvalidOperationException($"Failed to create player: {error?.LocalizedDescription ?? "unknown error"}");
+        var playerItem = new AVPlayerItem(url);
+        this.player = new AVPlayer(playerItem);
 
-        _player.FinishedPlaying += OnFinishedPlaying;
-        _player.PrepareToPlay();
-        _player.Play();
+        this.completionObserver = NSNotificationCenter.DefaultCenter.AddObserver(
+            AVPlayerItem.DidPlayToEndTimeNotification,
+            this.OnPlaybackFinished,
+            playerItem
+        );
 
-        _currentTrack = track;
-        SetState(PlaybackState.Playing);
+        this.player.Play();
+
+        this.currentTrack = track;
+        this.SetState(PlaybackState.Playing);
 
         return Task.CompletedTask;
     }
 
     public void Pause()
     {
-        if (_player != null && _state == PlaybackState.Playing)
+        if (this.player != null && this.state == PlaybackState.Playing)
         {
-            _player.Pause();
-            SetState(PlaybackState.Paused);
+            this.player.Pause();
+            this.SetState(PlaybackState.Paused);
         }
     }
 
     public void Resume()
     {
-        if (_player != null && _state == PlaybackState.Paused)
+        if (this.player != null && this.state == PlaybackState.Paused)
         {
-            _player.Play();
-            SetState(PlaybackState.Playing);
+            this.player.Play();
+            this.SetState(PlaybackState.Playing);
         }
     }
 
     public void Stop()
     {
-        if (_player != null)
+        if (this.player != null)
         {
-            _player.FinishedPlaying -= OnFinishedPlaying;
-            _player.Stop();
-            _player.Dispose();
-            _player = null;
+            if (this.completionObserver != null)
+            {
+                NSNotificationCenter.DefaultCenter.RemoveObserver(this.completionObserver);
+                this.completionObserver.Dispose();
+                this.completionObserver = null;
+            }
+            this.player.Pause();
+            this.player.Dispose();
+            this.player = null;
         }
-        _currentTrack = null;
-        SetState(PlaybackState.Stopped);
+        this.currentTrack = null;
+        this.SetState(PlaybackState.Stopped);
     }
 
     public void Seek(TimeSpan position)
     {
-        if (_player != null)
-            _player.CurrentTime = position.TotalSeconds;
+        this.player?.Seek(CoreMedia.CMTime.FromSeconds(position.TotalSeconds, 1000));
     }
 
     public void Dispose()
     {
-        Stop();
+        this.Stop();
         var audioSession = AVAudioSession.SharedInstance();
         audioSession.SetActive(false);
     }
 
-    void SetState(PlaybackState state)
+    void SetState(PlaybackState newState)
     {
-        _state = state;
-        StateChanged?.Invoke(this, state);
+        this.state = newState;
+        this.StateChanged?.Invoke(this, newState);
     }
 
-    void OnFinishedPlaying(object? sender, AVStatusEventArgs e)
+    void OnPlaybackFinished(NSNotification notification)
     {
-        if (e.Status)
-        {
-            SetState(PlaybackState.Stopped);
-            PlaybackCompleted?.Invoke(this, EventArgs.Empty);
-        }
+        this.SetState(PlaybackState.Stopped);
+        this.PlaybackCompleted?.Invoke(this, EventArgs.Empty);
     }
 }

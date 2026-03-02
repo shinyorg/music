@@ -4,9 +4,9 @@ namespace Shiny.Music;
 /// Represents metadata for a music track on the device.
 /// </summary>
 /// <param name="Id">Platform-specific unique identifier for the track. On Android this is the MediaStore row ID; on iOS it is the persistent ID.</param>
-/// <param name="Title">The title of the track.</param>
-/// <param name="Artist">The artist or performer of the track.</param>
-/// <param name="Album">The album the track belongs to.</param>
+/// <param name="Title">The title of the track, or <c>null</c> if not available.</param>
+/// <param name="Artist">The artist or performer of the track, or <c>null</c> if not available.</param>
+/// <param name="Album">The album the track belongs to, or <c>null</c> if not available.</param>
 /// <param name="Genre">The genre of the track, or <c>null</c> if not available.</param>
 /// <param name="Duration">The playback duration of the track.</param>
 /// <param name="AlbumArtUri">A URI pointing to the album artwork image. Available on Android via MediaStore; <c>null</c> on iOS where artwork is accessed through MPMediaItem.Artwork.</param>
@@ -19,9 +19,9 @@ namespace Shiny.Music;
 /// </param>
 public record MusicMetadata(
     string Id,
-    string Title,
-    string Artist,
-    string Album,
+    string? Title,
+    string? Artist,
+    string? Album,
     string? Genre,
     TimeSpan Duration,
     string? AlbumArtUri,

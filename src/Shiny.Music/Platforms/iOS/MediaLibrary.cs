@@ -135,9 +135,9 @@ public class MediaLibrary : IMediaLibrary
     {
         return new MusicMetadata(
             Id: item.PersistentID.ToString(),
-            Title: item.Title ?? "Unknown",
-            Artist: item.Artist ?? "Unknown",
-            Album: item.AlbumTitle ?? "Unknown",
+            Title: item.Title,
+            Artist: item.Artist,
+            Album: item.AlbumTitle,
             Genre: item.Genre,
             Duration: TimeSpan.FromSeconds(item.PlaybackDuration),
             AlbumArtUri: null, // iOS album art is accessed via MPMediaItem.Artwork, not a URI

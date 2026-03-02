@@ -2,16 +2,13 @@ namespace MusicSample;
 
 public partial class App : Application
 {
-    readonly MainPage _mainPage;
-
-    public App(MainPage mainPage)
+    public App()
     {
         InitializeComponent();
-        _mainPage = mainPage;
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        return new Window(new NavigationPage(_mainPage));
+        return new Window(new AppShell());
     }
 }

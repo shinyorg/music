@@ -19,7 +19,5 @@
   </array>
   <key>NSAppleMusicUsageDescription</key>
   <string>This app needs access to your music library to browse and play your music.</string>
-  <key>MinimumOSVersion</key>
-  <string>15.0</string>
 </dict>
 </plist>

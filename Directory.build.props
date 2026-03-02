@@ -6,6 +6,9 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Authors>aritchie;ShinyLib</Authors>
         <MauiVersion>10.0.41</MauiVersion>
+
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
         
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/shinyorg/music</PackageProjectUrl>
@@ -14,7 +17,7 @@
 
         <PackageIcon>icon.png</PackageIcon>
         <PackageReadmeFile>readme.md</PackageReadmeFile>
-        <PackageReleaseNotes>https://shinylib.net/client/release-notes</PackageReleaseNotes>
+        <PackageReleaseNotes>https://shinylib.net/client/music/release-notes</PackageReleaseNotes>
         <PackageProjectUrl>https://shinylib.net</PackageProjectUrl>
         <PackageTags>music media audio android ios maui shiny</PackageTags>
     </PropertyGroup>

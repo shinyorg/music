@@ -1,0 +1,8 @@
+﻿{
+    "solution": {
+        "path": "Music.slnx",
+        "projects": [
+            "src\\Shiny.Music\\Shiny.Music.csproj"
+        ]
+    }
+}

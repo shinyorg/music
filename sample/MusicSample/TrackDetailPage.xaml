@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MusicSample.TrackDetailPage"
+             Title="Track Details">
+
+    <ScrollView Padding="16">
+        <VerticalStackLayout Spacing="16">
+
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                  RowSpacing="12" ColumnSpacing="12">
+
+                <Label Text="Title" FontAttributes="Bold" />
+                <Label x:Name="LblTitle" Grid.Column="1" />
+
+                <Label Text="Artist" FontAttributes="Bold" Grid.Row="1" />
+                <Label x:Name="LblArtist" Grid.Row="1" Grid.Column="1" />
+
+                <Label Text="Album" FontAttributes="Bold" Grid.Row="2" />
+                <Label x:Name="LblAlbum" Grid.Row="2" Grid.Column="1" />
+
+                <Label Text="Genre" FontAttributes="Bold" Grid.Row="3" />
+                <Label x:Name="LblGenre" Grid.Row="3" Grid.Column="1" />
+
+                <Label Text="Duration" FontAttributes="Bold" Grid.Row="4" />
+                <Label x:Name="LblDuration" Grid.Row="4" Grid.Column="1" />
+
+                <Label Text="ID" FontAttributes="Bold" Grid.Row="5" />
+                <Label x:Name="LblId" Grid.Row="5" Grid.Column="1" FontSize="12" TextColor="Gray" />
+
+                <Label Text="Content URI" FontAttributes="Bold" Grid.Row="6" />
+                <Label x:Name="LblContentUri" Grid.Row="6" Grid.Column="1" FontSize="12" TextColor="Gray"
+                       LineBreakMode="CharacterWrap" />
+
+                <Label Text="Album Art URI" FontAttributes="Bold" Grid.Row="7" />
+                <Label x:Name="LblAlbumArtUri" Grid.Row="7" Grid.Column="1" FontSize="12" TextColor="Gray"
+                       LineBreakMode="CharacterWrap" />
+            </Grid>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

@@ -5,31 +5,31 @@ namespace Shiny.Music;
 
 public class MusicPlayer : IMusicPlayer
 {
-    Android.Media.MediaPlayer? _player;
-    MusicMetadata? _currentTrack;
-    PlaybackState _state = PlaybackState.Stopped;
+    Android.Media.MediaPlayer? player;
+    MusicMetadata? currentTrack;
+    PlaybackState state = PlaybackState.Stopped;
 
-    public PlaybackState State => _state;
-    public MusicMetadata? CurrentTrack => _currentTrack;
+    public PlaybackState State => this.state;
+    public MusicMetadata? CurrentTrack => this.currentTrack;
 
     public TimeSpan Position =>
-        _player != null ? TimeSpan.FromMilliseconds(_player.CurrentPosition) : TimeSpan.Zero;
+        this.player != null ? TimeSpan.FromMilliseconds(this.player.CurrentPosition) : TimeSpan.Zero;
 
     public TimeSpan Duration =>
-        _player != null ? TimeSpan.FromMilliseconds(_player.Duration) : TimeSpan.Zero;
+        this.player != null ? TimeSpan.FromMilliseconds(this.player.Duration) : TimeSpan.Zero;
 
     public event EventHandler<PlaybackState>? StateChanged;
     public event EventHandler? PlaybackCompleted;
 
     public Task PlayAsync(MusicMetadata track)
     {
-        Stop();
+        this.Stop();
 
         var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity
             ?? throw new InvalidOperationException("No current activity available");
 
-        _player = new Android.Media.MediaPlayer();
-        _player.SetAudioAttributes(
+        this.player = new Android.Media.MediaPlayer();
+        this.player.SetAudioAttributes(
             new AudioAttributes.Builder()!
                 .SetContentType(AudioContentType.Music)!
                 .SetUsage(AudioUsageKind.Media)!
@@ -37,70 +37,70 @@ public class MusicPlayer : IMusicPlayer
         );
 
         var uri = Uri.Parse(track.ContentUri)!;
-        _player.SetDataSource(activity, uri);
-        _player.Prepare();
-        _player.Start();
+        this.player.SetDataSource(activity, uri);
+        this.player.Prepare();
+        this.player.Start();
 
-        _currentTrack = track;
-        SetState(PlaybackState.Playing);
+        this.currentTrack = track;
+        this.SetState(PlaybackState.Playing);
 
-        _player.Completion += OnPlaybackCompleted;
+        this.player.Completion += this.OnPlaybackCompleted;
 
         return Task.CompletedTask;
     }
 
     public void Pause()
     {
-        if (_player != null && _state == PlaybackState.Playing)
+        if (this.player != null && this.state == PlaybackState.Playing)
         {
-            _player.Pause();
-            SetState(PlaybackState.Paused);
+            this.player.Pause();
+            this.SetState(PlaybackState.Paused);
         }
     }
 
     public void Resume()
     {
-        if (_player != null && _state == PlaybackState.Paused)
+        if (this.player != null && this.state == PlaybackState.Paused)
         {
-            _player.Start();
-            SetState(PlaybackState.Playing);
+            this.player.Start();
+            this.SetState(PlaybackState.Playing);
         }
     }
 
     public void Stop()
     {
-        if (_player != null)
+        if (this.player != null)
         {
-            _player.Completion -= OnPlaybackCompleted;
-            if (_player.IsPlaying)
-                _player.Stop();
-            _player.Reset();
-            _player.Release();
-            _player = null;
+            this.player.Completion -= this.OnPlaybackCompleted;
+            if (this.player.IsPlaying)
+                this.player.Stop();
+            this.player.Reset();
+            this.player.Release();
+            this.player = null;
         }
-        _currentTrack = null;
-        SetState(PlaybackState.Stopped);
+        this.currentTrack = null;
+        this.SetState(PlaybackState.Stopped);
     }
 
     public void Seek(TimeSpan position)
     {
-        _player?.SeekTo((int)position.TotalMilliseconds);
+        this.player?.SeekTo((int)position.TotalMilliseconds);
     }
 
     public void Dispose()
     {
-        Stop();
+        this.Stop();
     }
 
-    void SetState(PlaybackState state)
+    void SetState(PlaybackState newState)
     {
-        _state = state;
-        StateChanged?.Invoke(this, state);
+        this.state = newState;
+        this.StateChanged?.Invoke(this, newState);
     }
 
     void OnPlaybackCompleted(object? sender, EventArgs e)
     {
-        SetState(PlaybackState.Stopped);
-        PlaybackCompleted?.Invoke(this, EventArgs.Empty);
+        this.SetState(PlaybackState.Stopped);
+        this.PlaybackCompleted?.Invoke(this, EventArgs.Empty);
     }
 }
