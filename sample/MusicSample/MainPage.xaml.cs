@@ -7,6 +7,8 @@ public partial class MainPage : ContentPage
     readonly IMediaLibrary mediaLibrary;
     readonly IMusicPlayer musicPlayer;
     MusicMetadata? selectedTrack;
+    IDispatcherTimer? positionTimer;
+    bool isUserDragging;
 
     public MainPage(IMediaLibrary mediaLibrary, IMusicPlayer musicPlayer)
     {
@@ -19,6 +21,7 @@ public partial class MainPage : ContentPage
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 LblPlaybackState.Text = state.ToString();
+                UpdatePositionTimerState(state);
             });
         };
 
@@ -27,9 +30,93 @@ public partial class MainPage : ContentPage
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 LblNowPlaying.Text = "Finished";
+                ResetSeekBar();
             });
         };
     }
+
+    void UpdatePositionTimerState(PlaybackState state)
+    {
+        if (state == PlaybackState.Playing)
+            StartPositionTimer();
+        else
+            StopPositionTimer();
+    }
+
+    void StartPositionTimer()
+    {
+        if (this.positionTimer != null)
+            return;
+
+        this.positionTimer = Dispatcher.CreateTimer();
+        this.positionTimer.Interval = TimeSpan.FromMilliseconds(500);
+        this.positionTimer.Tick += OnPositionTimerTick;
+        this.positionTimer.Start();
+    }
+
+    void StopPositionTimer()
+    {
+        if (this.positionTimer == null)
+            return;
+
+        this.positionTimer.Stop();
+        this.positionTimer.Tick -= OnPositionTimerTick;
+        this.positionTimer = null;
+    }
+
+    void OnPositionTimerTick(object? sender, EventArgs e)
+    {
+        if (this.isUserDragging)
+            return;
+
+        var position = this.musicPlayer.Position;
+        var duration = this.musicPlayer.Duration;
+
+        LblPosition.Text = FormatTime(position);
+        LblDuration.Text = FormatTime(duration);
+        SliderPosition.Value = duration.TotalSeconds > 0
+            ? position.TotalSeconds / duration.TotalSeconds
+            : 0;
+    }
+
+    void OnSliderDragStarted(object? sender, EventArgs e) => this.isUserDragging = true;
+
+    void OnSliderDragCompleted(object? sender, EventArgs e)
+    {
+        this.isUserDragging = false;
+
+        var duration = this.musicPlayer.Duration;
+        if (duration.TotalSeconds > 0)
+        {
+            var seekTo = TimeSpan.FromSeconds(SliderPosition.Value * duration.TotalSeconds);
+            this.musicPlayer.Seek(seekTo);
+        }
+    }
+
+    void OnSliderValueChanged(object? sender, ValueChangedEventArgs e)
+    {
+        if (!this.isUserDragging)
+            return;
+
+        var duration = this.musicPlayer.Duration;
+        if (duration.TotalSeconds > 0)
+        {
+            var preview = TimeSpan.FromSeconds(e.NewValue * duration.TotalSeconds);
+            LblPosition.Text = FormatTime(preview);
+        }
+    }
+
+    void ResetSeekBar()
+    {
+        SliderPosition.Value = 0;
+        LblPosition.Text = "0:00";
+        LblDuration.Text = "0:00";
+    }
+
+    static string FormatTime(TimeSpan time) =>
+        time.TotalHours >= 1
+            ? time.ToString(@"h\:mm\:ss")
+            : time.ToString(@"m\:ss");
 
     async void OnRequestPermission(object? sender, EventArgs e)
     {
@@ -39,7 +126,10 @@ public partial class MainPage : ContentPage
             LblPermissionStatus.Text = status.ToString();
 
             if (status == Shiny.Music.PermissionStatus.Granted)
+            {
                 await this.LoadTracks();
+                ChkStreamingSubscription.IsChecked = await this.mediaLibrary.HasStreamingSubscriptionAsync();
+            }
         }
         catch (Exception ex)
         {

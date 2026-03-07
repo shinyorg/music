@@ -22,6 +22,12 @@ namespace Shiny.Music;
 /// This value is <see cref="string.Empty"/> for DRM-protected Apple Music subscription tracks,
 /// which cannot be played via AVAudioPlayer or copied.
 /// </param>
+/// <param name="StoreId">
+/// An optional provider-specific store identifier used for streaming playback.
+/// On iOS, this is the Apple Music catalog ID (from <c>PlayParams.Id</c>) and enables playback
+/// via <c>MPMusicPlayerController</c> for Apple Music subscription content.
+/// This is ignored on Android.
+/// </param>
 public record MusicMetadata(
     string Id,
     string? Title,
@@ -31,5 +37,13 @@ public record MusicMetadata(
     TimeSpan Duration,
     string? AlbumArtUri,
     bool? IsExplicit,
-    string ContentUri
-);
+    string ContentUri,
+    string? StoreId = null
+)
+{
+    /// <summary>
+    /// Whether this track can be played. A track is playable if it has a <see cref="ContentUri"/> (local)
+    /// or a <see cref="StoreId"/> (streaming via Apple Music).
+    /// </summary>
+    public bool IsPlayable => !string.IsNullOrEmpty(ContentUri) || !string.IsNullOrEmpty(StoreId);
+}

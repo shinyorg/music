@@ -9,7 +9,9 @@ A .NET library for accessing the device music library on **Android** and **iOS**
 - 🔐 Requesting permissions to access music
 - 🎵 Querying metadata about music on the device
 - ▶️ Playing music files from the device library
+- 🎧 Streaming Apple Music subscription tracks via `MPMusicPlayerController` (iOS)
 - 📁 Copying music files (where permitted)
+- 🔍 Checking for active streaming subscriptions
 
 ## Installation
 
@@ -77,6 +79,7 @@ Add these to your `AndroidManifest.xml`:
 - The library requests runtime permissions via the MAUI Permissions API
 - Music is queried through `MediaStore.Audio.Media`
 - Playback uses `Android.Media.MediaPlayer` with content URIs
+- `HasStreamingSubscriptionAsync()` always returns `false`
 - **Copy**: Reads from the `ContentResolver` input stream. Works for all locally stored music files.
 
 ---
@@ -97,7 +100,9 @@ Add these to your `AndroidManifest.xml`:
 - **Minimum iOS Version**: 15.0
 - Permission is requested via `MPMediaLibrary.RequestAuthorization`
 - Music metadata is queried using `MPMediaQuery` from the `MediaPlayer` framework
-- Playback uses `AVAudioPlayer` from `AVFoundation` with the item's `AssetURL`
+- **Local playback** uses `AVAudioPlayer` from `AVFoundation` with the item's `AssetURL`
+- **Streaming playback** uses `MPMusicPlayerController.SystemMusicPlayer` for Apple Music subscription tracks with a `StoreId`
+- `HasStreamingSubscriptionAsync()` checks `SKCloudServiceController` for the `MusicCatalogPlayback` capability
 - **Copy Limitations**:
   - ✅ Locally synced / purchased (non-DRM) tracks can be exported via `AVAssetExportSession`
   - ❌ **Apple Music subscription (DRM-protected) tracks cannot be copied.** The `AssetURL` is empty for these items, and iOS does not provide filesystem access to DRM content.
@@ -121,12 +126,13 @@ No special entitlements are required beyond the Info.plist usage description. Th
 | `GetAllTracksAsync()` | Returns all music tracks on the device |
 | `SearchTracksAsync(query)` | Searches tracks by title, artist, or album |
 | `CopyTrackAsync(track, destPath)` | Copies a track to the specified path; returns `false` if not possible |
+| `HasStreamingSubscriptionAsync()` | Checks for an active streaming subscription (iOS: Apple Music; Android: always `false`) |
 
 ### `IMusicPlayer`
 
 | Member | Description |
 |---|---|
-| `PlayAsync(track)` | Loads and plays the specified track |
+| `PlayAsync(track)` | Loads and plays the specified track (uses `AVAudioPlayer` or `MPMusicPlayerController` on iOS based on available URIs) |
 | `Pause()` | Pauses current playback |
 | `Resume()` | Resumes after pausing |
 | `Stop()` | Stops playback and releases the track |
@@ -142,14 +148,15 @@ No special entitlements are required beyond the Info.plist usage description. Th
 | Property | Type | Description |
 |---|---|---|
 | `Id` | `string` | Platform-specific unique identifier |
-| `Title` | `string` | Track title |
-| `Artist` | `string` | Artist name |
-| `Album` | `string` | Album name |
+| `Title` | `string?` | Track title |
+| `Artist` | `string?` | Artist name |
+| `Album` | `string?` | Album name |
 | `Genre` | `string?` | Genre (may be null) |
 | `Duration` | `TimeSpan` | Track duration |
 | `AlbumArtUri` | `string?` | Album art URI (Android only; null on iOS) |
 | `IsExplicit` | `bool?` | Whether the track is marked as explicit content. iOS only via `MPMediaItem.IsExplicitItem`; always `null` on Android. |
 | `ContentUri` | `string` | URI used for playback and file operations |
+| `StoreId` | `string?` | Apple Music catalog ID for streaming playback via `MPMusicPlayerController` (iOS only; `null` on Android) |
 
 ## Sample App
 

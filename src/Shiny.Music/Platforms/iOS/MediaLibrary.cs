@@ -1,6 +1,7 @@
 using AVFoundation;
 using Foundation;
 using MediaPlayer;
+using StoreKit;
 
 namespace Shiny.Music;
 
@@ -142,7 +143,24 @@ public class MediaLibrary : IMediaLibrary
             Duration: TimeSpan.FromSeconds(item.PlaybackDuration),
             AlbumArtUri: null, // iOS album art is accessed via MPMediaItem.Artwork, not a URI
             IsExplicit: item.IsExplicitItem,
-            ContentUri: item.AssetURL?.AbsoluteString ?? string.Empty
+            ContentUri: item.AssetURL?.AbsoluteString ?? string.Empty,
+            StoreId: item.PlaybackStoreID
         );
+    }
+
+    public async Task<bool> HasStreamingSubscriptionAsync()
+    {
+        try
+        {
+#pragma warning disable CA1422 // SKCloudServiceController is obsoleted on iOS 18+ but no .NET replacement is available
+            var controller = new SKCloudServiceController();
+            var capabilities = await controller.RequestCapabilitiesAsync();
+            return capabilities.HasFlag(SKCloudServiceCapability.MusicCatalogPlayback);
+#pragma warning restore CA1422
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

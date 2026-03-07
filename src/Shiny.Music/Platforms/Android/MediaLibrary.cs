@@ -197,4 +197,6 @@ public class MediaLibrary : IMediaLibrary
             ContentUri: contentUri?.ToString() ?? string.Empty
         );
     }
+
+    public Task<bool> HasStreamingSubscriptionAsync() => Task.FromResult(false);
 }
