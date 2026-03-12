@@ -198,5 +198,38 @@ public class MediaLibrary : IMediaLibrary
         );
     }
 
+    public Task<IReadOnlyList<string>> GetGenresAsync()
+    {
+        return Task.Run(() =>
+        {
+            var activity = GetActivity();
+            var genres = new List<string>();
+
+            using var cursor = activity.ContentResolver!.Query(
+                MediaStore.Audio.Genres.ExternalContentUri!,
+                new[] { MediaStore.Audio.Genres.InterfaceConsts.Name },
+                null,
+                null,
+                MediaStore.Audio.Genres.InterfaceConsts.Name + " ASC"
+            );
+
+            if (cursor != null)
+            {
+                while (cursor.MoveToNext())
+                {
+                    var name = cursor.GetString(0);
+                    if (!string.IsNullOrWhiteSpace(name))
+                        genres.Add(name);
+                }
+            }
+
+            return (IReadOnlyList<string>)genres
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => g, StringComparer.OrdinalIgnoreCase)
+                .ToList()
+                .AsReadOnly();
+        });
+    }
+
     public Task<bool> HasStreamingSubscriptionAsync() => Task.FromResult(false);
 }

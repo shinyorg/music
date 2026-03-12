@@ -17,6 +17,9 @@ triggers:
   - audio library
   - MediaStore audio
   - MPMediaQuery
+  - music genre
+  - genre query
+  - GetGenresAsync
   - Shiny.Music
   - music metadata
   - READ_MEDIA_AUDIO
@@ -33,6 +36,7 @@ Invoke this skill when the user wants to:
 - Access the device music library on Android or iOS
 - Request permissions to read audio/music from the device
 - Query or search music track metadata (title, artist, album, duration, explicit content, etc.)
+- Get all distinct genres from the user's music library
 - Play, pause, resume, stop, or seek within music tracks
 - Play Apple Music subscription (DRM) tracks via `StoreId` and `MPMusicPlayerController` on iOS
 - Check for an active streaming subscription via `HasStreamingSubscriptionAsync()`
@@ -134,6 +138,14 @@ Task<IReadOnlyList<MusicMetadata>> SearchTracksAsync(string query);
 ```
 
 Searches tracks by title, artist, or album. Case-insensitive partial string matching.
+
+#### GetGenresAsync
+
+```csharp
+Task<IReadOnlyList<string>> GetGenresAsync();
+```
+
+Returns all distinct, non-null genre names from the user's music library, sorted alphabetically. Permission must be granted first. On Android, queries `MediaStore.Audio.Genres`. On iOS, uses `MPMediaQuery.GenresQuery` to enumerate genre collections.
 
 #### CopyTrackAsync
 

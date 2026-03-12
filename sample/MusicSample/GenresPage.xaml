@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MusicSample.GenresPage"
+             Title="Genres">
+
+    <Grid RowDefinitions="Auto,*" Padding="16" RowSpacing="12">
+
+        <Button x:Name="BtnLoad"
+                Text="Load Genres"
+                Clicked="OnLoadGenres" />
+
+        <CollectionView Grid.Row="1"
+                        x:Name="GenreList">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Label Text="{Binding .}"
+                           Padding="8,12"
+                           FontSize="16" />
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+            <CollectionView.EmptyView>
+                <Label Text="No genres loaded. Grant permission on the Music Library tab, then tap 'Load Genres'."
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                       TextColor="Gray"
+                       Margin="20" />
+            </CollectionView.EmptyView>
+        </CollectionView>
+
+    </Grid>
+
+</ContentPage>

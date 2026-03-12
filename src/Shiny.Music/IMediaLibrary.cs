@@ -46,6 +46,16 @@ public interface IMediaLibrary
     Task<bool> CopyTrackAsync(MusicMetadata track, string destinationPath);
 
     /// <summary>
+    /// Gets all distinct genre names from the user's music library, sorted alphabetically.
+    /// Tracks with no genre set are excluded from the results.
+    /// Permission must be granted before calling this method.
+    /// On Android, this queries the <c>MediaStore.Audio.Genres</c> table.
+    /// On iOS, this uses <c>MPMediaQuery.GenresQuery</c> to enumerate genre collections.
+    /// </summary>
+    /// <returns>A read-only list of distinct, non-null genre names sorted alphabetically.</returns>
+    Task<IReadOnlyList<string>> GetGenresAsync();
+
+    /// <summary>
     /// Checks whether the user has an active music streaming subscription that allows catalog playback.
     /// On iOS, this checks for Apple Music subscription capability via <c>SKCloudServiceController</c>.
     /// On Android, this always returns <c>false</c>.

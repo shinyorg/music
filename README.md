@@ -125,6 +125,7 @@ No special entitlements are required beyond the Info.plist usage description. Th
 | `CheckPermissionAsync()` | Checks current permission status without prompting |
 | `GetAllTracksAsync()` | Returns all music tracks on the device |
 | `SearchTracksAsync(query)` | Searches tracks by title, artist, or album |
+| `GetGenresAsync()` | Returns all distinct genre names from the library, sorted alphabetically |
 | `CopyTrackAsync(track, destPath)` | Copies a track to the specified path; returns `false` if not possible |
 | `HasStreamingSubscriptionAsync()` | Checks for an active streaming subscription (iOS: Apple Music; Android: always `false`) |
 
@@ -167,6 +168,7 @@ The `sample/MusicSample` project is a .NET MAUI app that demonstrates all librar
 3. **Search** — Type a query and tap "Search" to filter by title/artist/album
 4. **Play/Pause/Stop** — Select a track and use the playback controls
 5. **Copy** — Select a track and tap "Copy" to export it to app storage
+6. **Genres** — Switch to the "Genres" tab to view all distinct genres in your library
 
 ### Running the Sample
 

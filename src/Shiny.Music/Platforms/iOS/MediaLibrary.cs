@@ -148,6 +148,24 @@ public class MediaLibrary : IMediaLibrary
         );
     }
 
+    public Task<IReadOnlyList<string>> GetGenresAsync()
+    {
+        return Task.Run(() =>
+        {
+            var query = MPMediaQuery.GenresQuery;
+            var collections = query.Collections ?? Array.Empty<MPMediaItemCollection>();
+
+            var genres = collections
+                .Select(c => (string?)c.RepresentativeItem?.Genre)
+                .Where(g => !string.IsNullOrWhiteSpace(g))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => g, StringComparer.OrdinalIgnoreCase)
+                .ToList()!;
+
+            return (IReadOnlyList<string>)genres.AsReadOnly();
+        });
+    }
+
     public async Task<bool> HasStreamingSubscriptionAsync()
     {
         try

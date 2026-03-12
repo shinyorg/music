@@ -6,6 +6,9 @@
     x:Class="MusicSample.AppShell"
     Title="Music Sample">
 
-    <ShellContent ContentTemplate="{DataTemplate local:MainPage}" Route="main" />
+    <TabBar>
+        <ShellContent Title="Library" ContentTemplate="{DataTemplate local:MainPage}" Route="main" />
+        <ShellContent Title="Genres" ContentTemplate="{DataTemplate local:GenresPage}" Route="genres" />
+    </TabBar>
 
 </Shell>
