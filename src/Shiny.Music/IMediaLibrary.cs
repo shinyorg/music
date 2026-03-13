@@ -35,6 +35,14 @@ public interface IMediaLibrary
     Task<IReadOnlyList<MusicMetadata>> SearchTracksAsync(string query);
 
     /// <summary>
+    /// Gets tracks matching the specified filter criteria. All non-null filter properties are combined with AND logic.
+    /// Permission must be granted before calling this method.
+    /// </summary>
+    /// <param name="filter">The filter criteria to apply. See <see cref="MusicFilter"/> for available options.</param>
+    /// <returns>A read-only list of <see cref="MusicMetadata"/> for tracks matching all specified filter criteria.</returns>
+    Task<IReadOnlyList<MusicMetadata>> GetTracksAsync(MusicFilter filter);
+
+    /// <summary>
     /// Copies a music file to the specified destination path.
     /// On Android, this reads from the ContentResolver input stream.
     /// On iOS, this uses <c>AVAssetExportSession</c> to export the track as M4A.
@@ -46,14 +54,35 @@ public interface IMediaLibrary
     Task<bool> CopyTrackAsync(MusicMetadata track, string destinationPath);
 
     /// <summary>
-    /// Gets all distinct genre names from the user's music library, sorted alphabetically.
+    /// Gets all distinct genre names from the user's music library with track counts, sorted alphabetically.
     /// Tracks with no genre set are excluded from the results.
+    /// When a <paramref name="filter"/> is provided, only tracks matching the filter criteria are considered.
     /// Permission must be granted before calling this method.
-    /// On Android, this queries the <c>MediaStore.Audio.Genres</c> table.
-    /// On iOS, this uses <c>MPMediaQuery.GenresQuery</c> to enumerate genre collections.
     /// </summary>
-    /// <returns>A read-only list of distinct, non-null genre names sorted alphabetically.</returns>
-    Task<IReadOnlyList<string>> GetGenresAsync();
+    /// <param name="filter">Optional filter to narrow the tracks considered for genre grouping (e.g., filter by decade to see genres within that decade).</param>
+    /// <returns>A read-only list of distinct, non-null genre names with their track counts, sorted alphabetically.</returns>
+    Task<IReadOnlyList<GroupedCount<string>>> GetGenresAsync(MusicFilter? filter = null);
+
+    /// <summary>
+    /// Gets all distinct release years from the user's music library with track counts, sorted in ascending order.
+    /// Tracks with no year metadata are excluded from the results.
+    /// When a <paramref name="filter"/> is provided, only tracks matching the filter criteria are considered.
+    /// Permission must be granted before calling this method.
+    /// </summary>
+    /// <param name="filter">Optional filter to narrow the tracks considered for year grouping (e.g., filter by genre to see years within that genre).</param>
+    /// <returns>A read-only list of distinct, non-zero release years with their track counts, sorted in ascending order.</returns>
+    Task<IReadOnlyList<GroupedCount<int>>> GetYearsAsync(MusicFilter? filter = null);
+
+    /// <summary>
+    /// Gets all distinct decades represented in the user's music library with track counts, sorted in ascending order.
+    /// Each decade is returned as its starting year (e.g., 1990 represents the 1990s).
+    /// Tracks with no year metadata are excluded from the results.
+    /// When a <paramref name="filter"/> is provided, only tracks matching the filter criteria are considered.
+    /// Permission must be granted before calling this method.
+    /// </summary>
+    /// <param name="filter">Optional filter to narrow the tracks considered for decade grouping (e.g., filter by genre to see decades within that genre).</param>
+    /// <returns>A read-only list of distinct decade start years (e.g., 1970, 1980, 1990) with their track counts, sorted in ascending order.</returns>
+    Task<IReadOnlyList<GroupedCount<int>>> GetDecadesAsync(MusicFilter? filter = null);
 
     /// <summary>
     /// Checks whether the user has an active music streaming subscription that allows catalog playback.

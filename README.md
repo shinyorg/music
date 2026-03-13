@@ -8,6 +8,8 @@ A .NET library for accessing the device music library on **Android** and **iOS**
 
 - 🔐 Requesting permissions to access music
 - 🎵 Querying metadata about music on the device
+- 🔎 Filtering tracks by genre, year, decade, and search text
+- 📊 Browsing genres, years, and decades with track counts
 - ▶️ Playing music files from the device library
 - 🎧 Streaming Apple Music subscription tracks via `MPMusicPlayerController` (iOS)
 - 📁 Copying music files (where permitted)
@@ -47,7 +49,23 @@ public class MyPage
         // 3. Play a track
         await _player.PlayAsync(tracks[0]);
 
-        // 4. Copy a track
+        // 4. Browse genres with counts
+        var genres = await _library.GetGenresAsync();
+
+        // 5. Browse decades with counts
+        var decades = await _library.GetDecadesAsync();
+
+        // 6. Filter: Rock tracks from the 1990s
+        var filtered = await _library.GetTracksAsync(new MusicFilter
+        {
+            Genre = "Rock",
+            Decade = 1990
+        });
+
+        // 7. Cross-query: genres within the 2000s
+        var genresIn2000s = await _library.GetGenresAsync(new MusicFilter { Decade = 2000 });
+
+        // 8. Copy a track
         var dest = Path.Combine(FileSystem.AppDataDirectory, "copy.m4a");
         var success = await _library.CopyTrackAsync(tracks[0], dest);
     }
@@ -125,9 +143,32 @@ No special entitlements are required beyond the Info.plist usage description. Th
 | `CheckPermissionAsync()` | Checks current permission status without prompting |
 | `GetAllTracksAsync()` | Returns all music tracks on the device |
 | `SearchTracksAsync(query)` | Searches tracks by title, artist, or album |
-| `GetGenresAsync()` | Returns all distinct genre names from the library, sorted alphabetically |
+| `GetTracksAsync(filter)` | Returns tracks matching a `MusicFilter` (genre, year, decade, search — combined with AND logic) |
+| `GetGenresAsync(filter?)` | Returns distinct genres with track counts; optionally filtered by year/decade/search |
+| `GetYearsAsync(filter?)` | Returns distinct release years with track counts; optionally filtered by genre/decade/search |
+| `GetDecadesAsync(filter?)` | Returns distinct decades with track counts; optionally filtered by genre/year/search |
 | `CopyTrackAsync(track, destPath)` | Copies a track to the specified path; returns `false` if not possible |
 | `HasStreamingSubscriptionAsync()` | Checks for an active streaming subscription (iOS: Apple Music; Android: always `false`) |
+
+### `MusicFilter`
+
+All properties are optional and combined with AND logic. Pass to `GetTracksAsync`, `GetGenresAsync`, `GetYearsAsync`, or `GetDecadesAsync`.
+
+| Property | Type | Description |
+|---|---|---|
+| `Genre` | `string?` | Filter by genre name (case-insensitive) |
+| `Year` | `int?` | Filter by exact release year (takes precedence over `Decade`) |
+| `Decade` | `int?` | Filter by decade start year (e.g., 1990 for the 1990s) |
+| `SearchQuery` | `string?` | Text search across title, artist, and album |
+
+### `GroupedCount<T>`
+
+Returned by `GetGenresAsync`, `GetYearsAsync`, and `GetDecadesAsync`.
+
+| Property | Type | Description |
+|---|---|---|
+| `Value` | `T` | The grouped value (`string` for genres, `int` for years/decades) |
+| `Count` | `int` | Number of tracks in this group |
 
 ### `IMusicPlayer`
 
@@ -158,6 +199,7 @@ No special entitlements are required beyond the Info.plist usage description. Th
 | `IsExplicit` | `bool?` | Whether the track is marked as explicit content. iOS only via `MPMediaItem.IsExplicitItem`; always `null` on Android. |
 | `ContentUri` | `string` | URI used for playback and file operations |
 | `StoreId` | `string?` | Apple Music catalog ID for streaming playback via `MPMusicPlayerController` (iOS only; `null` on Android) |
+| `Year` | `int?` | Release year of the track, or `null` if not available. Android: `MediaStore.Audio.Media.YEAR`; iOS: derived from `MPMediaItem.ReleaseDate`. |
 
 ## Sample App
 
@@ -168,7 +210,9 @@ The `sample/MusicSample` project is a .NET MAUI app that demonstrates all librar
 3. **Search** — Type a query and tap "Search" to filter by title/artist/album
 4. **Play/Pause/Stop** — Select a track and use the playback controls
 5. **Copy** — Select a track and tap "Copy" to export it to app storage
-6. **Genres** — Switch to the "Genres" tab to view all distinct genres in your library
+6. **Genres** — Switch to the "Genres" tab to view all distinct genres with track counts
+7. **Decades** — Switch to the "Decades" tab to view decades with track counts
+8. **Years** — Switch to the "Years" tab to view release years with track counts
 
 ### Running the Sample
 

@@ -132,6 +132,15 @@ public class MediaLibrary : IMediaLibrary
         _ => PermissionStatus.Unknown
     };
 
+    static int? GetReleaseYear(MPMediaItem item)
+    {
+        var date = item.ReleaseDate;
+        if (date == null)
+            return null;
+        var year = ((DateTime)date).Year;
+        return year > 0 ? year : null;
+    }
+
     static MusicMetadata ToMusicMetadata(MPMediaItem item)
     {
         return new MusicMetadata(
@@ -144,25 +153,114 @@ public class MediaLibrary : IMediaLibrary
             AlbumArtUri: null, // iOS album art is accessed via MPMediaItem.Artwork, not a URI
             IsExplicit: item.IsExplicitItem,
             ContentUri: item.AssetURL?.AbsoluteString ?? string.Empty,
-            StoreId: item.PlaybackStoreID
+            StoreId: item.PlaybackStoreID,
+            Year: GetReleaseYear(item)
         );
     }
 
-    public Task<IReadOnlyList<string>> GetGenresAsync()
+    static IEnumerable<MPMediaItem> GetFilteredItems(MusicFilter? filter)
+    {
+        var query = new MPMediaQuery();
+        query.AddFilterPredicate(MPMediaPropertyPredicate.PredicateWithValue(
+            NSNumber.FromInt32((int)MPMediaType.Music),
+            MPMediaItem.MediaTypeProperty,
+            MPMediaPredicateComparison.EqualsTo
+        ));
+
+        if (!string.IsNullOrWhiteSpace(filter?.Genre))
+        {
+            query.AddFilterPredicate(MPMediaPropertyPredicate.PredicateWithValue(
+                new NSString(filter.Genre),
+                MPMediaItem.GenreProperty,
+                MPMediaPredicateComparison.EqualsTo
+            ));
+        }
+
+        IEnumerable<MPMediaItem> items = query.Items ?? Array.Empty<MPMediaItem>();
+
+        if (filter != null)
+        {
+            if (filter.Year.HasValue)
+            {
+                items = items.Where(item => GetReleaseYear(item) == filter.Year.Value);
+            }
+            else if (filter.Decade.HasValue)
+            {
+                items = items.Where(item =>
+                {
+                    var year = GetReleaseYear(item);
+                    return year.HasValue && year.Value >= filter.Decade.Value && year.Value < filter.Decade.Value + 10;
+                });
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.SearchQuery))
+            {
+                items = items.Where(item =>
+                    ((string?)item.Title)?.Contains(filter.SearchQuery, StringComparison.OrdinalIgnoreCase) == true ||
+                    ((string?)item.Artist)?.Contains(filter.SearchQuery, StringComparison.OrdinalIgnoreCase) == true ||
+                    ((string?)item.AlbumTitle)?.Contains(filter.SearchQuery, StringComparison.OrdinalIgnoreCase) == true);
+            }
+        }
+
+        return items;
+    }
+
+    public Task<IReadOnlyList<MusicMetadata>> GetTracksAsync(MusicFilter filter)
     {
         return Task.Run(() =>
         {
-            var query = MPMediaQuery.GenresQuery;
-            var collections = query.Collections ?? Array.Empty<MPMediaItemCollection>();
+            var tracks = GetFilteredItems(filter).Select(ToMusicMetadata).ToList();
+            return (IReadOnlyList<MusicMetadata>)tracks.AsReadOnly();
+        });
+    }
 
-            var genres = collections
-                .Select(c => (string?)c.RepresentativeItem?.Genre)
+    public Task<IReadOnlyList<GroupedCount<string>>> GetGenresAsync(MusicFilter? filter = null)
+    {
+        return Task.Run(() =>
+        {
+            var genres = GetFilteredItems(filter)
+                .Select(item => (string?)item.Genre)
                 .Where(g => !string.IsNullOrWhiteSpace(g))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(g => g, StringComparer.OrdinalIgnoreCase)
-                .ToList()!;
+                .GroupBy(g => g!, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(g => new GroupedCount<string>(g.Key, g.Count()))
+                .ToList();
 
-            return (IReadOnlyList<string>)genres.AsReadOnly();
+            return (IReadOnlyList<GroupedCount<string>>)genres.AsReadOnly();
+        });
+    }
+
+    public Task<IReadOnlyList<GroupedCount<int>>> GetYearsAsync(MusicFilter? filter = null)
+    {
+        return Task.Run(() =>
+        {
+            var years = GetFilteredItems(filter)
+                .Select(GetReleaseYear)
+                .Where(y => y.HasValue && y.Value > 0)
+                .Select(y => y!.Value)
+                .GroupBy(y => y)
+                .OrderBy(g => g.Key)
+                .Select(g => new GroupedCount<int>(g.Key, g.Count()))
+                .ToList();
+
+            return (IReadOnlyList<GroupedCount<int>>)years.AsReadOnly();
+        });
+    }
+
+    public Task<IReadOnlyList<GroupedCount<int>>> GetDecadesAsync(MusicFilter? filter = null)
+    {
+        return Task.Run(() =>
+        {
+            var decades = GetFilteredItems(filter)
+                .Select(GetReleaseYear)
+                .Where(y => y.HasValue && y.Value > 0)
+                .Select(y => y!.Value / 10 * 10)
+                .GroupBy(d => d)
+                .OrderBy(g => g.Key)
+                .Select(g => new GroupedCount<int>(g.Key, g.Count()))
+                .ToList();
+
+            return (IReadOnlyList<GroupedCount<int>>)decades.AsReadOnly();
         });
     }
 

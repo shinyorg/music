@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="MusicSample.GenresPage"
-             Title="Genres">
+             x:Class="MusicSample.DecadesPage"
+             Title="Decades">
 
     <Grid RowDefinitions="Auto,*" Padding="16" RowSpacing="12">
 
         <Button x:Name="BtnLoad"
-                Text="Load Genres"
-                Clicked="OnLoadGenres" />
+                Text="Load Decades"
+                Clicked="OnLoadDecades" />
 
         <CollectionView Grid.Row="1"
-                        x:Name="GenreList">
+                        x:Name="DecadeList">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
                     <Grid ColumnDefinitions="*,Auto" Padding="8,12">
-                        <Label Text="{Binding Value}"
+                        <Label Text="{Binding Value, StringFormat='{0}s'}"
                                FontSize="16" />
                         <Label Grid.Column="1"
                                Text="{Binding Count, StringFormat='{0} tracks'}"
@@ -25,7 +25,7 @@
                 </DataTemplate>
             </CollectionView.ItemTemplate>
             <CollectionView.EmptyView>
-                <Label Text="No genres loaded. Grant permission on the Music Library tab, then tap 'Load Genres'."
+                <Label Text="No decades loaded. Grant permission on the Music Library tab, then tap 'Load Decades'."
                        HorizontalTextAlignment="Center"
                        VerticalTextAlignment="Center"
                        TextColor="Gray"
