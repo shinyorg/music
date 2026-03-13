@@ -564,5 +564,145 @@ public class MediaLibrary : IMediaLibrary
         });
     }
 
+    public Task<PlaylistInfo?> CreatePlaylistAsync(string name)
+    {
+        return Task.Run(() =>
+        {
+            try
+            {
+                var activity = GetActivity();
+                var now = Java.Lang.JavaSystem.CurrentTimeMillis() / 1000;
+
+                var values = new ContentValues();
+                values.Put(MediaStore.Audio.Playlists.InterfaceConsts.Name, name);
+                values.Put(MediaStore.Audio.Playlists.InterfaceConsts.DateAdded, now);
+                values.Put(MediaStore.Audio.Playlists.InterfaceConsts.DateModified, now);
+
+                var uri = activity.ContentResolver!.Insert(MediaStore.Audio.Playlists.ExternalContentUri!, values);
+                if (uri == null)
+                    return null;
+
+                var id = ContentUris.ParseId(uri);
+                return (PlaylistInfo?)new PlaylistInfo(id.ToString(), name, 0);
+            }
+            catch
+            {
+                return null;
+            }
+        });
+    }
+
+    public Task<bool> RenamePlaylistAsync(string playlistId, string newName)
+    {
+        return Task.Run(() =>
+        {
+            try
+            {
+                if (!long.TryParse(playlistId, out var id))
+                    return false;
+
+                var activity = GetActivity();
+                var values = new ContentValues();
+                values.Put(MediaStore.Audio.Playlists.InterfaceConsts.Name, newName);
+                values.Put(MediaStore.Audio.Playlists.InterfaceConsts.DateModified,
+                    Java.Lang.JavaSystem.CurrentTimeMillis() / 1000);
+
+                var uri = ContentUris.WithAppendedId(MediaStore.Audio.Playlists.ExternalContentUri!, id)!;
+                var rows = activity.ContentResolver!.Update(uri, values, null, null);
+                return rows > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        });
+    }
+
+    public Task<bool> DeletePlaylistAsync(string playlistId)
+    {
+        return Task.Run(() =>
+        {
+            try
+            {
+                if (!long.TryParse(playlistId, out var id))
+                    return false;
+
+                var activity = GetActivity();
+                var uri = ContentUris.WithAppendedId(MediaStore.Audio.Playlists.ExternalContentUri!, id)!;
+                var rows = activity.ContentResolver!.Delete(uri, null, null);
+                return rows > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        });
+    }
+
+    public Task<bool> AddTracksToPlaylistAsync(string playlistId, IEnumerable<MusicMetadata> tracks)
+    {
+        return Task.Run(() =>
+        {
+            try
+            {
+                if (!long.TryParse(playlistId, out var id))
+                    return false;
+
+                var activity = GetActivity();
+                var membersUri = MediaStore.Audio.Playlists.Members.GetContentUri("external", id)!;
+
+                using var countCursor = activity.ContentResolver!.Query(
+                    membersUri,
+                    new[] { MediaStore.Audio.Playlists.Members.InterfaceConsts.AudioId },
+                    null, null, null
+                );
+                var baseOrder = countCursor?.Count ?? 0;
+
+                var trackList = tracks.ToList();
+                var values = trackList
+                    .Select((t, idx) =>
+                    {
+                        var cv = new ContentValues();
+                        cv.Put(MediaStore.Audio.Playlists.Members.InterfaceConsts.AudioId, long.Parse(t.Id));
+                        cv.Put(MediaStore.Audio.Playlists.Members.InterfaceConsts.PlayOrder, baseOrder + idx);
+                        return cv;
+                    })
+                    .ToArray();
+
+                var inserted = activity.ContentResolver!.BulkInsert(membersUri, values);
+                return inserted > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        });
+    }
+
+    public Task<bool> RemoveTrackFromPlaylistAsync(string playlistId, string trackId)
+    {
+        return Task.Run(() =>
+        {
+            try
+            {
+                if (!long.TryParse(playlistId, out var id))
+                    return false;
+
+                var activity = GetActivity();
+                var membersUri = MediaStore.Audio.Playlists.Members.GetContentUri("external", id)!;
+                var rows = activity.ContentResolver!.Delete(
+                    membersUri,
+                    MediaStore.Audio.Playlists.Members.InterfaceConsts.AudioId + " = ?",
+                    new[] { trackId }
+                );
+                return rows > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        });
+    }
+
     public Task<bool> HasStreamingSubscriptionAsync() => Task.FromResult(false);
 }

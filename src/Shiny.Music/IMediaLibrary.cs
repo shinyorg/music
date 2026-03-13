@@ -104,6 +104,62 @@ public interface IMediaLibrary
     Task<IReadOnlyList<MusicMetadata>> GetPlaylistTracksAsync(string playlistId);
 
     /// <summary>
+    /// Creates a new empty playlist with the specified name.
+    /// On Android, inserts a row into <c>MediaStore.Audio.Playlists</c>.
+    /// On iOS, creates a playlist via <c>MPMediaLibrary.GetDefaultMediaLibrary()</c>.
+    /// Requires write access to the media library. On Android, the app must hold
+    /// <c>WRITE_EXTERNAL_STORAGE</c> (API &lt; 30) or use scoped storage (API 30+).
+    /// </summary>
+    /// <param name="name">The display name for the new playlist. Must not be null or whitespace.</param>
+    /// <returns>
+    /// A <see cref="PlaylistInfo"/> for the newly created playlist with a <see cref="PlaylistInfo.SongCount"/> of 0,
+    /// or <c>null</c> if creation failed.
+    /// </returns>
+    Task<PlaylistInfo?> CreatePlaylistAsync(string name);
+
+    /// <summary>
+    /// Renames an existing playlist.
+    /// On Android, updates the <c>name</c> column in <c>MediaStore.Audio.Playlists</c>.
+    /// On iOS, playlist renaming is not supported by the public <c>MediaPlayer</c> framework API and always returns <c>false</c>.
+    /// </summary>
+    /// <param name="playlistId">The platform-specific playlist identifier returned by <see cref="GetPlaylistsAsync"/>.</param>
+    /// <param name="newName">The new display name for the playlist. Must not be null or whitespace.</param>
+    /// <returns><c>true</c> if the rename succeeded; <c>false</c> otherwise, including when not supported on the current platform.</returns>
+    Task<bool> RenamePlaylistAsync(string playlistId, string newName);
+
+    /// <summary>
+    /// Deletes a playlist from the device music library.
+    /// On Android, deletes the row from <c>MediaStore.Audio.Playlists</c> along with all its member entries.
+    /// On Android 10+, deleting a playlist owned by another app will fail with a <c>SecurityException</c> and return <c>false</c>.
+    /// On iOS, playlist deletion is not supported by the public <c>MediaPlayer</c> framework API and always returns <c>false</c>.
+    /// </summary>
+    /// <param name="playlistId">The platform-specific playlist identifier returned by <see cref="GetPlaylistsAsync"/>.</param>
+    /// <returns><c>true</c> if the playlist was deleted; <c>false</c> otherwise, including when not supported on the current platform.</returns>
+    Task<bool> DeletePlaylistAsync(string playlistId);
+
+    /// <summary>
+    /// Appends one or more tracks to the end of the specified playlist.
+    /// On Android, bulk-inserts rows into <c>MediaStore.Audio.Playlists.Members</c> after the current last member.
+    /// On iOS, calls <c>MPMediaPlaylist.AddItemAsync</c> for each track using its <see cref="MusicMetadata.StoreId"/>.
+    /// Because the iOS API requires an Apple Music catalog product ID, only tracks with a non-empty
+    /// <see cref="MusicMetadata.StoreId"/> can be added on iOS; local-only tracks are silently skipped.
+    /// </summary>
+    /// <param name="playlistId">The platform-specific playlist identifier returned by <see cref="GetPlaylistsAsync"/>.</param>
+    /// <param name="tracks">The tracks to append to the playlist, in the order they should appear.</param>
+    /// <returns><c>true</c> if at least one track was successfully added; <c>false</c> if nothing was added or the operation failed.</returns>
+    Task<bool> AddTracksToPlaylistAsync(string playlistId, IEnumerable<MusicMetadata> tracks);
+
+    /// <summary>
+    /// Removes a single track from the specified playlist.
+    /// On Android, deletes the member row matching the given <paramref name="trackId"/> from <c>MediaStore.Audio.Playlists.Members</c>.
+    /// On iOS, track removal from playlists is not supported by the public <c>MediaPlayer</c> framework API and always returns <c>false</c>.
+    /// </summary>
+    /// <param name="playlistId">The platform-specific playlist identifier returned by <see cref="GetPlaylistsAsync"/>.</param>
+    /// <param name="trackId">The <see cref="MusicMetadata.Id"/> of the track to remove.</param>
+    /// <returns><c>true</c> if the track was removed; <c>false</c> otherwise, including when not supported on the current platform.</returns>
+    Task<bool> RemoveTrackFromPlaylistAsync(string playlistId, string trackId);
+
+    /// <summary>
     /// Checks whether the user has an active music streaming subscription that allows catalog playback.
     /// On iOS, this checks for Apple Music subscription capability via <c>SKCloudServiceController</c>.
     /// On Android, this always returns <c>false</c>.

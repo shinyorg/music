@@ -314,6 +314,64 @@ public class MediaLibrary : IMediaLibrary
         });
     }
 
+    public Task<PlaylistInfo?> CreatePlaylistAsync(string name)
+    {
+        var tcs = new TaskCompletionSource<PlaylistInfo?>();
+
+        var metadata = new MPMediaPlaylistCreationMetadata(name);
+        MPMediaLibrary.GetDefaultMediaLibrary().AddPlaylist(metadata, (playlist, error) =>
+        {
+            if (error != null || playlist == null)
+                tcs.SetResult(null);
+            else
+                tcs.SetResult(new PlaylistInfo(playlist.PersistentID.ToString(), playlist.Name!, 0));
+        });
+
+        return tcs.Task;
+    }
+
+    // iOS MediaPlayer framework does not expose a public API to rename playlists.
+    public Task<bool> RenamePlaylistAsync(string playlistId, string newName) => Task.FromResult(false);
+
+    // iOS MediaPlayer framework does not expose a public API to delete playlists.
+    public Task<bool> DeletePlaylistAsync(string playlistId) => Task.FromResult(false);
+
+    public async Task<bool> AddTracksToPlaylistAsync(string playlistId, IEnumerable<MusicMetadata> tracks)
+    {
+        if (!ulong.TryParse(playlistId, out var persistentId))
+            return false;
+
+        var query = MPMediaQuery.PlaylistsQuery;
+        query.AddFilterPredicate(MPMediaPropertyPredicate.PredicateWithValue(
+            NSNumber.FromUInt64(persistentId),
+            MPMediaPlaylist.PersistentIDProperty,
+            MPMediaPredicateComparison.EqualsTo
+        ));
+
+        var collections = query.Collections ?? Array.Empty<MPMediaItemCollection>();
+        var playlist = collections.OfType<MPMediaPlaylist>().FirstOrDefault();
+        if (playlist == null)
+            return false;
+
+        var addedAny = false;
+        foreach (var track in tracks)
+        {
+            // iOS requires an Apple Music catalog product ID (StoreId); local-only tracks cannot be added.
+            if (string.IsNullOrEmpty(track.StoreId))
+                continue;
+
+            var tcs = new TaskCompletionSource<bool>();
+            playlist.AddItem(track.StoreId, error => tcs.SetResult(error == null));
+            if (await tcs.Task)
+                addedAny = true;
+        }
+
+        return addedAny;
+    }
+
+    // iOS MediaPlayer framework does not expose a public API to remove individual tracks from playlists.
+    public Task<bool> RemoveTrackFromPlaylistAsync(string playlistId, string trackId) => Task.FromResult(false);
+
     public async Task<bool> HasStreamingSubscriptionAsync()
     {
         try
