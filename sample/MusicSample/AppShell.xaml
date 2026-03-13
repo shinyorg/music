@@ -11,6 +11,7 @@
         <ShellContent Title="Genres" ContentTemplate="{DataTemplate local:GenresPage}" Route="genres" />
         <ShellContent Title="Decades" ContentTemplate="{DataTemplate local:DecadesPage}" Route="decades" />
         <ShellContent Title="Years" ContentTemplate="{DataTemplate local:YearsPage}" Route="years" />
+        <ShellContent Title="Playlists" ContentTemplate="{DataTemplate local:PlaylistsPage}" Route="playlists" />
     </TabBar>
 
 </Shell>

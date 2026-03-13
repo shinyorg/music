@@ -264,6 +264,56 @@ public class MediaLibrary : IMediaLibrary
         });
     }
 
+    public Task<IReadOnlyList<PlaylistInfo>> GetPlaylistsAsync()
+    {
+        return Task.Run(() =>
+        {
+            var query = MPMediaQuery.PlaylistsQuery;
+            var collections = query.Collections ?? Array.Empty<MPMediaItemCollection>();
+
+            var playlists = collections
+                .OfType<MPMediaPlaylist>()
+                .Where(p => !string.IsNullOrWhiteSpace(p.Name))
+                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(p => new PlaylistInfo(
+                    Id: p.PersistentID.ToString(),
+                    Name: p.Name!,
+                    SongCount: (int)(p.Items?.Length ?? 0)
+                ))
+                .ToList();
+
+            return (IReadOnlyList<PlaylistInfo>)playlists.AsReadOnly();
+        });
+    }
+
+    public Task<IReadOnlyList<MusicMetadata>> GetPlaylistTracksAsync(string playlistId)
+    {
+        return Task.Run(() =>
+        {
+            if (!ulong.TryParse(playlistId, out var persistentId))
+                return (IReadOnlyList<MusicMetadata>)Array.Empty<MusicMetadata>();
+
+            var query = MPMediaQuery.PlaylistsQuery;
+            query.AddFilterPredicate(MPMediaPropertyPredicate.PredicateWithValue(
+                NSNumber.FromUInt64(persistentId),
+                MPMediaPlaylist.PersistentIDProperty,
+                MPMediaPredicateComparison.EqualsTo
+            ));
+
+            var collections = query.Collections ?? Array.Empty<MPMediaItemCollection>();
+            var playlist = collections.OfType<MPMediaPlaylist>().FirstOrDefault();
+
+            if (playlist == null)
+                return (IReadOnlyList<MusicMetadata>)Array.Empty<MusicMetadata>();
+
+            var tracks = (playlist.Items ?? Array.Empty<MPMediaItem>())
+                .Select(ToMusicMetadata)
+                .ToList();
+
+            return (IReadOnlyList<MusicMetadata>)tracks.AsReadOnly();
+        });
+    }
+
     public async Task<bool> HasStreamingSubscriptionAsync()
     {
         try

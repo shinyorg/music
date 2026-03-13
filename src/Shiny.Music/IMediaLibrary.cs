@@ -85,6 +85,25 @@ public interface IMediaLibrary
     Task<IReadOnlyList<GroupedCount<int>>> GetDecadesAsync(MusicFilter? filter = null);
 
     /// <summary>
+    /// Gets all playlists from the device music library with their song counts, sorted alphabetically by name.
+    /// On Android, this reads from <c>MediaStore.Audio.Playlists</c>.
+    /// On iOS, this reads from <c>MPMediaQuery.PlaylistsQuery</c>.
+    /// Permission must be granted before calling this method.
+    /// </summary>
+    /// <returns>A read-only list of <see cref="PlaylistInfo"/> for every playlist on the device, sorted alphabetically.</returns>
+    Task<IReadOnlyList<PlaylistInfo>> GetPlaylistsAsync();
+
+    /// <summary>
+    /// Gets all tracks in the specified playlist.
+    /// On Android, this queries <c>MediaStore.Audio.Playlists.Members</c> for the given playlist ID.
+    /// On iOS, this retrieves tracks from the <c>MPMediaPlaylist</c> with the matching persistent ID.
+    /// Permission must be granted before calling this method.
+    /// </summary>
+    /// <param name="playlistId">The platform-specific playlist identifier returned by <see cref="GetPlaylistsAsync"/>.</param>
+    /// <returns>A read-only list of <see cref="MusicMetadata"/> for every track in the playlist, in playlist order.</returns>
+    Task<IReadOnlyList<MusicMetadata>> GetPlaylistTracksAsync(string playlistId);
+
+    /// <summary>
     /// Checks whether the user has an active music streaming subscription that allows catalog playback.
     /// On iOS, this checks for Apple Music subscription capability via <c>SKCloudServiceController</c>.
     /// On Android, this always returns <c>false</c>.
