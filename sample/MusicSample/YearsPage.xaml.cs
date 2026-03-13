@@ -22,7 +22,16 @@ public partial class YearsPage : ContentPage
         }
         catch (Exception ex)
         {
-            await DisplayAlert("Error", ex.Message, "OK");
+            await DisplayAlertAsync("Error", ex.Message, "OK");
         }
+    }
+
+    async void OnYearSelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (e.CurrentSelection.FirstOrDefault() is not GroupedCount<int> year)
+            return;
+
+        YearList.SelectedItem = null;
+        await Shell.Current.GoToAsync($"tracks?year={year.Value}&pageTitle={year.Value}");
     }
 }

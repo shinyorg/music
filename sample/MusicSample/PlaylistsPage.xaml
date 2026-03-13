@@ -11,21 +11,29 @@
                 Clicked="OnLoadPlaylists" />
 
         <CollectionView Grid.Row="1"
-                        x:Name="PlaylistList">
+                        x:Name="PlaylistList"
+                        SelectionMode="Single"
+                        SelectionChanged="OnPlaylistSelected">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Grid ColumnDefinitions="*,Auto" Padding="8,12">
+                    <Grid ColumnDefinitions="*,Auto,Auto" Padding="8,12">
                         <Label Text="{Binding Name}"
                                FontSize="16" />
                         <Label Grid.Column="1"
                                Text="{Binding SongCount, StringFormat='{0} songs'}"
                                FontSize="14"
                                TextColor="Gray" />
+                        <Label Grid.Column="2"
+                               Text="›"
+                               FontSize="20"
+                               TextColor="Gray"
+                               VerticalOptions="Center"
+                               Margin="8,0,0,0" />
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
             <CollectionView.EmptyView>
-                <Label Text="No playlists loaded. Grant permission on the Music Library tab, then tap 'Load Playlists'."
+                <Label Text="No playlists loaded. Grant permission on the Library tab, then tap 'Load Playlists'."
                        HorizontalTextAlignment="Center"
                        VerticalTextAlignment="Center"
                        TextColor="Gray"

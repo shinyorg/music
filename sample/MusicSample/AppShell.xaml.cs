@@ -6,5 +6,6 @@ public partial class AppShell : Shell
     {
         InitializeComponent();
         Routing.RegisterRoute("trackdetail", typeof(TrackDetailPage));
+        Routing.RegisterRoute("tracks", typeof(TracksPage));
     }
 }

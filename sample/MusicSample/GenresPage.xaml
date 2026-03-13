@@ -11,21 +11,29 @@
                 Clicked="OnLoadGenres" />
 
         <CollectionView Grid.Row="1"
-                        x:Name="GenreList">
+                        x:Name="GenreList"
+                        SelectionMode="Single"
+                        SelectionChanged="OnGenreSelected">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Grid ColumnDefinitions="*,Auto" Padding="8,12">
+                    <Grid ColumnDefinitions="*,Auto,Auto" Padding="8,12">
                         <Label Text="{Binding Value}"
                                FontSize="16" />
                         <Label Grid.Column="1"
                                Text="{Binding Count, StringFormat='{0} tracks'}"
                                FontSize="14"
                                TextColor="Gray" />
+                        <Label Grid.Column="2"
+                               Text="›"
+                               FontSize="20"
+                               TextColor="Gray"
+                               VerticalOptions="Center"
+                               Margin="8,0,0,0" />
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
             <CollectionView.EmptyView>
-                <Label Text="No genres loaded. Grant permission on the Music Library tab, then tap 'Load Genres'."
+                <Label Text="No genres loaded. Grant permission on the Library tab, then tap 'Load Genres'."
                        HorizontalTextAlignment="Center"
                        VerticalTextAlignment="Center"
                        TextColor="Gray"

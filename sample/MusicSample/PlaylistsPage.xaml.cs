@@ -22,7 +22,16 @@ public partial class PlaylistsPage : ContentPage
         }
         catch (Exception ex)
         {
-            await DisplayAlert("Error", ex.Message, "OK");
+            await DisplayAlertAsync("Error", ex.Message, "OK");
         }
+    }
+
+    async void OnPlaylistSelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (e.CurrentSelection.FirstOrDefault() is not PlaylistInfo playlist)
+            return;
+
+        PlaylistList.SelectedItem = null;
+        await Shell.Current.GoToAsync($"tracks?playlistId={Uri.EscapeDataString(playlist.Id)}&pageTitle={Uri.EscapeDataString(playlist.Name)}");
     }
 }

@@ -22,7 +22,16 @@ public partial class GenresPage : ContentPage
         }
         catch (Exception ex)
         {
-            await DisplayAlert("Error", ex.Message, "OK");
+            await DisplayAlertAsync("Error", ex.Message, "OK");
         }
+    }
+
+    async void OnGenreSelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (e.CurrentSelection.FirstOrDefault() is not GroupedCount<string> genre)
+            return;
+
+        GenreList.SelectedItem = null;
+        await Shell.Current.GoToAsync($"tracks?genre={Uri.EscapeDataString(genre.Value)}&pageTitle={Uri.EscapeDataString(genre.Value)}");
     }
 }
