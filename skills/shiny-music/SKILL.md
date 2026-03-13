@@ -11,6 +11,7 @@ triggers:
   - MusicMetadata
   - MusicFilter
   - GroupedCount
+  - PlaylistInfo
   - media library
   - music permission
   - music playback
@@ -26,10 +27,14 @@ triggers:
   - year query
   - decade query
   - filter tracks
+  - playlist
+  - playlists
   - GetGenresAsync
   - GetYearsAsync
   - GetDecadesAsync
   - GetTracksAsync
+  - GetPlaylistsAsync
+  - GetPlaylistTracksAsync
   - Shiny.Music
   - music metadata
   - READ_MEDIA_AUDIO
@@ -47,6 +52,7 @@ Invoke this skill when the user wants to:
 - Request permissions to read audio/music from the device
 - Query or search music track metadata (title, artist, album, duration, year, explicit content, etc.)
 - Get all distinct genres, years, or decades from the user's music library (with track counts)
+- Browse playlists and get tracks within a playlist
 - Filter tracks by genre, year, decade, and/or search text using `MusicFilter`
 - Cross-query: get genres within a decade, years within a genre, etc.
 - Play, pause, resume, stop, or seek within music tracks
@@ -183,6 +189,22 @@ Task<IReadOnlyList<MusicMetadata>> GetTracksAsync(MusicFilter filter);
 
 Returns tracks matching the specified filter criteria. All non-null filter properties are combined with AND logic. On Android, genre filtering queries via `MediaStore.Audio.Genres.Members`; year/decade/search use SQL WHERE clauses. On iOS, genre uses `MPMediaQuery` predicates; year/decade/search use LINQ filtering.
 
+#### GetPlaylistsAsync
+
+```csharp
+Task<IReadOnlyList<PlaylistInfo>> GetPlaylistsAsync();
+```
+
+Returns all playlists from the device music library with their song counts, sorted alphabetically by name. On Android, reads from `MediaStore.Audio.Playlists`. On iOS, reads from `MPMediaQuery.PlaylistsQuery`. Permission must be granted first.
+
+#### GetPlaylistTracksAsync
+
+```csharp
+Task<IReadOnlyList<MusicMetadata>> GetPlaylistTracksAsync(string playlistId);
+```
+
+Returns all tracks in the specified playlist, in playlist order. The `playlistId` is the platform-specific identifier returned by `GetPlaylistsAsync`. On Android, queries `MediaStore.Audio.Playlists.Members`. On iOS, retrieves tracks from the `MPMediaPlaylist` with the matching persistent ID.
+
 #### CopyTrackAsync
 
 ```csharp
@@ -288,6 +310,18 @@ public record MusicMetadata(
 | `StoreId` | Optional Apple Music catalog ID (from `PlayParams.Id`). Enables streaming playback via `MPMusicPlayerController` on iOS. Always `null` on Android. |
 | `Year` | Release year of the track, or `null` if not available. Android: `MediaStore.Audio.Media.YEAR`; iOS: derived from `MPMediaItem.ReleaseDate`. |
 
+### PlaylistInfo
+
+```csharp
+public record PlaylistInfo(string Id, string Name, int SongCount);
+```
+
+| Property | Description |
+|----------|-------------|
+| `Id` | Platform-specific unique identifier. Android: MediaStore playlist row ID. iOS: persistent ID. |
+| `Name` | The display name of the playlist. |
+| `SongCount` | The number of tracks in the playlist. |
+
 ### MusicFilter
 
 Defines optional criteria for filtering music tracks. All specified properties are combined with AND logic. Used with `GetTracksAsync`, `GetGenresAsync`, `GetYearsAsync`, and `GetDecadesAsync`.
@@ -383,6 +417,7 @@ On Android, this always returns `false`.
 8. **Use `HasStreamingSubscriptionAsync()`** — check before presenting streaming playback UI to the user.
 9. **Use `MusicFilter` for combined queries** — filter tracks by genre + year/decade in a single call rather than filtering in memory.
 10. **Use grouping methods with filters for cross-queries** — e.g., `GetGenresAsync(new MusicFilter { Decade = 1990 })` to find genres represented in the 90s.
+11. **Use `GetPlaylistsAsync` and `GetPlaylistTracksAsync`** — browse playlists and retrieve their contents in playlist order.
 
 ## Filtering Examples
 
@@ -407,4 +442,12 @@ var popDecades = await library.GetDecadesAsync(new MusicFilter { Genre = "Pop" }
 
 // Combined: genres matching "rock" search in the 1980s
 var rock80s = await library.GetGenresAsync(new MusicFilter { Decade = 1980, SearchQuery = "rock" });
+
+// Browse all playlists
+var playlists = await library.GetPlaylistsAsync();
+foreach (var p in playlists)
+    Console.WriteLine($"{p.Name} ({p.SongCount} songs)");
+
+// Get tracks in a playlist
+var playlistTracks = await library.GetPlaylistTracksAsync(playlists[0].Id);
 ```

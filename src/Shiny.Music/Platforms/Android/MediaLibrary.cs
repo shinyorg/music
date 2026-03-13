@@ -453,5 +453,116 @@ public class MediaLibrary : IMediaLibrary
         });
     }
 
+    public Task<IReadOnlyList<PlaylistInfo>> GetPlaylistsAsync()
+    {
+        return Task.Run(() =>
+        {
+            var activity = GetActivity();
+            var playlists = new List<PlaylistInfo>();
+
+            using var cursor = activity.ContentResolver!.Query(
+                MediaStore.Audio.Playlists.ExternalContentUri!,
+                new[]
+                {
+                    MediaStore.Audio.Playlists.InterfaceConsts.Id,
+                    MediaStore.Audio.Playlists.InterfaceConsts.Name
+                },
+                null, null,
+                MediaStore.Audio.Playlists.InterfaceConsts.Name + " ASC"
+            );
+
+            if (cursor != null)
+            {
+                while (cursor.MoveToNext())
+                {
+                    var id = cursor.GetLong(0);
+                    var name = cursor.GetString(1);
+                    if (string.IsNullOrWhiteSpace(name))
+                        continue;
+
+                    var membersUri = MediaStore.Audio.Playlists.Members.GetContentUri("external", id)!;
+                    using var membersCursor = activity.ContentResolver!.Query(
+                        membersUri,
+                        [ MediaStore.Audio.Playlists.Members.AudioId ],
+                        null, null, null
+                    );
+                    var count = membersCursor?.Count ?? 0;
+                    playlists.Add(new PlaylistInfo(id.ToString(), name, count));
+                }
+            }
+
+            return (IReadOnlyList<PlaylistInfo>)playlists.AsReadOnly();
+        });
+    }
+
+    public Task<IReadOnlyList<MusicMetadata>> GetPlaylistTracksAsync(string playlistId)
+    {
+        return Task.Run(() =>
+        {
+            var activity = GetActivity();
+            var tracks = new List<MusicMetadata>();
+
+            if (!long.TryParse(playlistId, out var id))
+                return (IReadOnlyList<MusicMetadata>)tracks.AsReadOnly();
+
+            var membersUri = MediaStore.Audio.Playlists.Members.GetContentUri("external", id)!;
+
+            var projection = new[]
+            {
+                MediaStore.Audio.Playlists.Members.AudioId,
+                MediaStore.Audio.Media.InterfaceConsts.Title,
+                MediaStore.Audio.Media.InterfaceConsts.Artist,
+                MediaStore.Audio.Media.InterfaceConsts.Album,
+                MediaStore.Audio.Media.InterfaceConsts.Duration,
+                MediaStore.Audio.Media.InterfaceConsts.AlbumId,
+                MediaStore.Audio.Media.InterfaceConsts.Data,
+                MediaStore.Audio.Media.InterfaceConsts.Year,
+                MediaStore.Audio.Playlists.Members.PlayOrder
+            };
+
+            using var cursor = activity.ContentResolver!.Query(
+                membersUri,
+                projection,
+                MediaStore.Audio.Media.InterfaceConsts.IsMusic + " != 0",
+                null,
+                MediaStore.Audio.Playlists.Members.PlayOrder + " ASC"
+            );
+
+            if (cursor != null)
+            {
+                while (cursor.MoveToNext())
+                {
+                    var trackId = cursor.GetLong(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Playlists.Members.AudioId));
+                    var title = cursor.GetString(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Media.InterfaceConsts.Title));
+                    var artist = cursor.GetString(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Media.InterfaceConsts.Artist));
+                    var album = cursor.GetString(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Media.InterfaceConsts.Album));
+                    var durationMs = cursor.GetLong(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Media.InterfaceConsts.Duration));
+                    var albumId = cursor.GetLong(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Media.InterfaceConsts.AlbumId));
+                    var year = cursor.GetInt(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Media.InterfaceConsts.Year));
+
+                    var contentUri = ContentUris.WithAppendedId(MediaStore.Audio.Media.ExternalContentUri!, trackId);
+                    var albumArtUri = ContentUris.WithAppendedId(
+                        Uri.Parse("content://media/external/audio/albumart")!, albumId
+                    );
+
+                    tracks.Add(new MusicMetadata(
+                        Id: trackId.ToString(),
+                        Title: title,
+                        Artist: artist,
+                        Album: album,
+                        Genre: null,
+                        Duration: TimeSpan.FromMilliseconds(durationMs),
+                        AlbumArtUri: albumArtUri?.ToString(),
+                        IsExplicit: null,
+                        ContentUri: contentUri?.ToString() ?? string.Empty,
+                        Year: year > 0 ? year : null
+                    ));
+                }
+            }
+
+            return (IReadOnlyList<MusicMetadata>)tracks.AsReadOnly();
+        });
+    }
+
     public Task<bool> HasStreamingSubscriptionAsync() => Task.FromResult(false);
 }

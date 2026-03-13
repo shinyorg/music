@@ -11,21 +11,29 @@
                 Clicked="OnLoadYears" />
 
         <CollectionView Grid.Row="1"
-                        x:Name="YearList">
+                        x:Name="YearList"
+                        SelectionMode="Single"
+                        SelectionChanged="OnYearSelected">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Grid ColumnDefinitions="*,Auto" Padding="8,12">
+                    <Grid ColumnDefinitions="*,Auto,Auto" Padding="8,12">
                         <Label Text="{Binding Value}"
                                FontSize="16" />
                         <Label Grid.Column="1"
                                Text="{Binding Count, StringFormat='{0} tracks'}"
                                FontSize="14"
                                TextColor="Gray" />
+                        <Label Grid.Column="2"
+                               Text="›"
+                               FontSize="20"
+                               TextColor="Gray"
+                               VerticalOptions="Center"
+                               Margin="8,0,0,0" />
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
             <CollectionView.EmptyView>
-                <Label Text="No years loaded. Grant permission on the Music Library tab, then tap 'Load Years'."
+                <Label Text="No years loaded. Grant permission on the Library tab, then tap 'Load Years'."
                        HorizontalTextAlignment="Center"
                        VerticalTextAlignment="Center"
                        TextColor="Gray"

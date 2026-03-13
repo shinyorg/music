@@ -22,7 +22,16 @@ public partial class DecadesPage : ContentPage
         }
         catch (Exception ex)
         {
-            await DisplayAlert("Error", ex.Message, "OK");
+            await DisplayAlertAsync("Error", ex.Message, "OK");
         }
+    }
+
+    async void OnDecadeSelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (e.CurrentSelection.FirstOrDefault() is not GroupedCount<int> decade)
+            return;
+
+        DecadeList.SelectedItem = null;
+        await Shell.Current.GoToAsync($"tracks?decade={decade.Value}&pageTitle={Uri.EscapeDataString($"{decade.Value}s")}");
     }
 }

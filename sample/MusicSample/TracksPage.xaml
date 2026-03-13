@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MusicSample.TracksPage"
+             Title="Tracks">
+
+    <Grid RowDefinitions="*,Auto" Padding="16" RowSpacing="12">
+
+        <!-- Track List -->
+        <CollectionView x:Name="TrackList"
+                        SelectionMode="Single"
+                        SelectionChanged="OnTrackSelected">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="8,4" ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout>
+                            <Label Text="{Binding Title}" FontAttributes="Bold" FontSize="14" />
+                            <Label FontSize="12" TextColor="Gray">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="{Binding Artist}" />
+                                        <Span Text=" — " />
+                                        <Span Text="{Binding Album}" />
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1"
+                               Text="{Binding Duration, StringFormat='{0:mm\\:ss}'}"
+                               VerticalOptions="Center"
+                               FontSize="12"
+                               TextColor="Gray" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+            <CollectionView.EmptyView>
+                <Label Text="No tracks found."
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                       TextColor="Gray"
+                       Margin="20" />
+            </CollectionView.EmptyView>
+        </CollectionView>
+
+        <!-- Playback Controls -->
+        <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto,Auto,Auto,Auto" RowSpacing="4">
+            <Label x:Name="LblNowPlaying"
+                   Text="Select a track to play"
+                   FontSize="14"
+                   FontAttributes="Bold"
+                   Grid.ColumnSpan="5"
+                   LineBreakMode="TailTruncation" />
+
+            <Grid Grid.Row="1" Grid.ColumnSpan="5" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                <Label x:Name="LblPosition"
+                       Text="0:00"
+                       FontSize="12"
+                       TextColor="Gray"
+                       VerticalOptions="Center" />
+                <Slider x:Name="SliderPosition"
+                        Grid.Column="1"
+                        Minimum="0"
+                        Maximum="1"
+                        ValueChanged="OnSliderValueChanged"
+                        DragStarted="OnSliderDragStarted"
+                        DragCompleted="OnSliderDragCompleted" />
+                <Label x:Name="LblDuration"
+                       Grid.Column="2"
+                       Text="0:00"
+                       FontSize="12"
+                       TextColor="Gray"
+                       VerticalOptions="Center" />
+            </Grid>
+
+            <Label x:Name="LblPlaybackState"
+                   Grid.Row="2"
+                   Text="Stopped"
+                   FontSize="12"
+                   VerticalOptions="Center"
+                   TextColor="Gray" />
+            <Button x:Name="BtnPlay"
+                    Grid.Row="2" Grid.Column="1"
+                    Text="▶"
+                    WidthRequest="50"
+                    Clicked="OnPlay" />
+            <Button x:Name="BtnPause"
+                    Grid.Row="2" Grid.Column="2"
+                    Text="⏸"
+                    WidthRequest="50"
+                    Clicked="OnPause" />
+            <Button x:Name="BtnStop"
+                    Grid.Row="2" Grid.Column="3"
+                    Text="⏹"
+                    WidthRequest="50"
+                    Clicked="OnStop" />
+            <Button x:Name="BtnInfo"
+                    Grid.Row="2" Grid.Column="4"
+                    Text="ℹ️"
+                    WidthRequest="50"
+                    Clicked="OnInfo" />
+        </Grid>
+
+    </Grid>
+
+</ContentPage>

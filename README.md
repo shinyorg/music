@@ -10,6 +10,7 @@ A .NET library for accessing the device music library on **Android** and **iOS**
 - 🎵 Querying metadata about music on the device
 - 🔎 Filtering tracks by genre, year, decade, and search text
 - 📊 Browsing genres, years, and decades with track counts
+- 📋 Browsing playlists and their tracks
 - ▶️ Playing music files from the device library
 - 🎧 Streaming Apple Music subscription tracks via `MPMusicPlayerController` (iOS)
 - 📁 Copying music files (where permitted)
@@ -65,7 +66,13 @@ public class MyPage
         // 7. Cross-query: genres within the 2000s
         var genresIn2000s = await _library.GetGenresAsync(new MusicFilter { Decade = 2000 });
 
-        // 8. Copy a track
+        // 8. Browse playlists
+        var playlists = await _library.GetPlaylistsAsync();
+
+        // 9. Get tracks in a playlist
+        var playlistTracks = await _library.GetPlaylistTracksAsync(playlists[0].Id);
+
+        // 10. Copy a track
         var dest = Path.Combine(FileSystem.AppDataDirectory, "copy.m4a");
         var success = await _library.CopyTrackAsync(tracks[0], dest);
     }
@@ -95,7 +102,7 @@ Add these to your `AndroidManifest.xml`:
 - **Target API 33+**: Uses `READ_MEDIA_AUDIO` granular media permission
 - **Target API < 33**: Falls back to `READ_EXTERNAL_STORAGE`
 - The library requests runtime permissions via the MAUI Permissions API
-- Music is queried through `MediaStore.Audio.Media`
+- Music is queried through `MediaStore.Audio.Media`; playlists through `MediaStore.Audio.Playlists`
 - Playback uses `Android.Media.MediaPlayer` with content URIs
 - `HasStreamingSubscriptionAsync()` always returns `false`
 - **Copy**: Reads from the `ContentResolver` input stream. Works for all locally stored music files.
@@ -117,7 +124,7 @@ Add these to your `AndroidManifest.xml`:
 
 - **Minimum iOS Version**: 15.0
 - Permission is requested via `MPMediaLibrary.RequestAuthorization`
-- Music metadata is queried using `MPMediaQuery` from the `MediaPlayer` framework
+- Music metadata is queried using `MPMediaQuery` from the `MediaPlayer` framework; playlists via `MPMediaQuery.PlaylistsQuery`
 - **Local playback** uses `AVAudioPlayer` from `AVFoundation` with the item's `AssetURL`
 - **Streaming playback** uses `MPMusicPlayerController.SystemMusicPlayer` for Apple Music subscription tracks with a `StoreId`
 - `HasStreamingSubscriptionAsync()` checks `SKCloudServiceController` for the `MusicCatalogPlayback` capability
@@ -147,6 +154,8 @@ No special entitlements are required beyond the Info.plist usage description. Th
 | `GetGenresAsync(filter?)` | Returns distinct genres with track counts; optionally filtered by year/decade/search |
 | `GetYearsAsync(filter?)` | Returns distinct release years with track counts; optionally filtered by genre/decade/search |
 | `GetDecadesAsync(filter?)` | Returns distinct decades with track counts; optionally filtered by genre/year/search |
+| `GetPlaylistsAsync()` | Returns all playlists with song counts, sorted alphabetically |
+| `GetPlaylistTracksAsync(playlistId)` | Returns all tracks in the specified playlist, in playlist order |
 | `CopyTrackAsync(track, destPath)` | Copies a track to the specified path; returns `false` if not possible |
 | `HasStreamingSubscriptionAsync()` | Checks for an active streaming subscription (iOS: Apple Music; Android: always `false`) |
 
@@ -169,6 +178,14 @@ Returned by `GetGenresAsync`, `GetYearsAsync`, and `GetDecadesAsync`.
 |---|---|---|
 | `Value` | `T` | The grouped value (`string` for genres, `int` for years/decades) |
 | `Count` | `int` | Number of tracks in this group |
+
+### `PlaylistInfo`
+
+| Property | Type | Description |
+|---|---|---|
+| `Id` | `string` | Platform-specific unique identifier for the playlist |
+| `Name` | `string` | The display name of the playlist |
+| `SongCount` | `int` | The number of tracks in the playlist |
 
 ### `IMusicPlayer`
 
@@ -213,6 +230,7 @@ The `sample/MusicSample` project is a .NET MAUI app that demonstrates all librar
 6. **Genres** — Switch to the "Genres" tab to view all distinct genres with track counts
 7. **Decades** — Switch to the "Decades" tab to view decades with track counts
 8. **Years** — Switch to the "Years" tab to view release years with track counts
+9. **Playlists** — Switch to the "Playlists" tab to view playlists and their tracks
 
 ### Running the Sample
 
