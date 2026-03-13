@@ -20,6 +20,7 @@ public static class MauiProgram
         builder.Services.AddTransient<GenresPage>();
         builder.Services.AddTransient<DecadesPage>();
         builder.Services.AddTransient<YearsPage>();
+        builder.Services.AddTransient<PlaylistsPage>();
 
         return builder.Build();
     }

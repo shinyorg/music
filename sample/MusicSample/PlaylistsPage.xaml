@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MusicSample.PlaylistsPage"
+             Title="Playlists">
+
+    <Grid RowDefinitions="Auto,*" Padding="16" RowSpacing="12">
+
+        <Button x:Name="BtnLoad"
+                Text="Load Playlists"
+                Clicked="OnLoadPlaylists" />
+
+        <CollectionView Grid.Row="1"
+                        x:Name="PlaylistList">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid ColumnDefinitions="*,Auto" Padding="8,12">
+                        <Label Text="{Binding Name}"
+                               FontSize="16" />
+                        <Label Grid.Column="1"
+                               Text="{Binding SongCount, StringFormat='{0} songs'}"
+                               FontSize="14"
+                               TextColor="Gray" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+            <CollectionView.EmptyView>
+                <Label Text="No playlists loaded. Grant permission on the Music Library tab, then tap 'Load Playlists'."
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                       TextColor="Gray"
+                       Margin="20" />
+            </CollectionView.EmptyView>
+        </CollectionView>
+
+    </Grid>
+
+</ContentPage>
