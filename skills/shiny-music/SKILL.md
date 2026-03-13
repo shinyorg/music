@@ -1,6 +1,6 @@
 --
 name: shiny-music
-description: Generate code using Shiny.Music, a unified API for accessing the device music library on Android and iOS with permissions, metadata querying, playback, and file copy
+description: Generate code using Shiny.Music, a unified API for accessing the device music library on Android and iOS with permissions, metadata querying, filtering, playback, and file copy
 auto_invoke: true
 triggers:
   - music library
@@ -9,6 +9,8 @@ triggers:
   - IMediaLibrary
   - IMusicPlayer
   - MusicMetadata
+  - MusicFilter
+  - GroupedCount
   - media library
   - music permission
   - music playback
@@ -19,7 +21,15 @@ triggers:
   - MPMediaQuery
   - music genre
   - genre query
+  - music year
+  - music decade
+  - year query
+  - decade query
+  - filter tracks
   - GetGenresAsync
+  - GetYearsAsync
+  - GetDecadesAsync
+  - GetTracksAsync
   - Shiny.Music
   - music metadata
   - READ_MEDIA_AUDIO
@@ -35,8 +45,10 @@ You are an expert in Shiny.Music, a .NET library that provides a unified API for
 Invoke this skill when the user wants to:
 - Access the device music library on Android or iOS
 - Request permissions to read audio/music from the device
-- Query or search music track metadata (title, artist, album, duration, explicit content, etc.)
-- Get all distinct genres from the user's music library
+- Query or search music track metadata (title, artist, album, duration, year, explicit content, etc.)
+- Get all distinct genres, years, or decades from the user's music library (with track counts)
+- Filter tracks by genre, year, decade, and/or search text using `MusicFilter`
+- Cross-query: get genres within a decade, years within a genre, etc.
 - Play, pause, resume, stop, or seek within music tracks
 - Play Apple Music subscription (DRM) tracks via `StoreId` and `MPMusicPlayerController` on iOS
 - Check for an active streaming subscription via `HasStreamingSubscriptionAsync()`
@@ -142,10 +154,34 @@ Searches tracks by title, artist, or album. Case-insensitive partial string matc
 #### GetGenresAsync
 
 ```csharp
-Task<IReadOnlyList<string>> GetGenresAsync();
+Task<IReadOnlyList<GroupedCount<string>>> GetGenresAsync(MusicFilter? filter = null);
 ```
 
-Returns all distinct, non-null genre names from the user's music library, sorted alphabetically. Permission must be granted first. On Android, queries `MediaStore.Audio.Genres`. On iOS, uses `MPMediaQuery.GenresQuery` to enumerate genre collections.
+Returns all distinct, non-null genre names from the user's music library with track counts, sorted alphabetically. When a `MusicFilter` is provided, only tracks matching the filter criteria are considered for grouping. Permission must be granted first.
+
+#### GetYearsAsync
+
+```csharp
+Task<IReadOnlyList<GroupedCount<int>>> GetYearsAsync(MusicFilter? filter = null);
+```
+
+Returns all distinct, non-zero release years from the user's music library with track counts, sorted in ascending order. When a `MusicFilter` is provided, only tracks matching the filter criteria are considered. On Android, uses `MediaStore.Audio.Media.YEAR`; on iOS, derives year from `MPMediaItem.ReleaseDate`.
+
+#### GetDecadesAsync
+
+```csharp
+Task<IReadOnlyList<GroupedCount<int>>> GetDecadesAsync(MusicFilter? filter = null);
+```
+
+Returns all distinct decades with track counts, sorted in ascending order. Each decade is its starting year (e.g., 1990 for the 1990s). When a `MusicFilter` is provided, only tracks matching the filter criteria are considered.
+
+#### GetTracksAsync
+
+```csharp
+Task<IReadOnlyList<MusicMetadata>> GetTracksAsync(MusicFilter filter);
+```
+
+Returns tracks matching the specified filter criteria. All non-null filter properties are combined with AND logic. On Android, genre filtering queries via `MediaStore.Audio.Genres.Members`; year/decade/search use SQL WHERE clauses. On iOS, genre uses `MPMediaQuery` predicates; year/decade/search use LINQ filtering.
 
 #### CopyTrackAsync
 
@@ -233,7 +269,8 @@ public record MusicMetadata(
     string? AlbumArtUri,
     bool? IsExplicit,
     string ContentUri,
-    string? StoreId = null
+    string? StoreId = null,
+    int? Year = null
 );
 ```
 
@@ -249,6 +286,41 @@ public record MusicMetadata(
 | `IsExplicit` | Whether the track is marked as explicit content. iOS only via `MPMediaItem.IsExplicitItem`; always `null` on Android. |
 | `ContentUri` | URI for playback/copy. Android: `content://` URI. iOS: `ipod-library://` asset URL. **Empty string for DRM-protected Apple Music tracks** — these cannot be played via AVAudioPlayer or copied. |
 | `StoreId` | Optional Apple Music catalog ID (from `PlayParams.Id`). Enables streaming playback via `MPMusicPlayerController` on iOS. Always `null` on Android. |
+| `Year` | Release year of the track, or `null` if not available. Android: `MediaStore.Audio.Media.YEAR`; iOS: derived from `MPMediaItem.ReleaseDate`. |
+
+### MusicFilter
+
+Defines optional criteria for filtering music tracks. All specified properties are combined with AND logic. Used with `GetTracksAsync`, `GetGenresAsync`, `GetYearsAsync`, and `GetDecadesAsync`.
+
+```csharp
+public class MusicFilter
+{
+    public string? Genre { get; init; }
+    public int? Year { get; init; }
+    public int? Decade { get; init; }
+    public string? SearchQuery { get; init; }
+}
+```
+
+| Property | Description |
+|----------|-------------|
+| `Genre` | Filter by genre name (case-insensitive match). |
+| `Year` | Filter by exact release year. Takes precedence over `Decade` if both are set. |
+| `Decade` | Filter by decade start year (e.g., 1990 for the 1990s). Ignored if `Year` is also set. |
+| `SearchQuery` | Text search across title, artist, and album (case-insensitive, contains match). |
+
+### GroupedCount&lt;T&gt;
+
+Returned by `GetGenresAsync`, `GetYearsAsync`, and `GetDecadesAsync`.
+
+```csharp
+public record GroupedCount<T>(T Value, int Count);
+```
+
+| Property | Description |
+|----------|-------------|
+| `Value` | The grouped value (`string` for genres, `int` for years/decades). |
+| `Count` | The number of tracks that belong to this group. |
 
 ### PermissionStatus
 
@@ -309,3 +381,30 @@ On Android, this always returns `false`.
 6. **Handle `Restricted` on iOS** — distinct from `Denied`; means system policy blocks access.
 7. **Copy format on iOS is M4A** — regardless of original encoding, `AVAssetExportSession` outputs M4A.
 8. **Use `HasStreamingSubscriptionAsync()`** — check before presenting streaming playback UI to the user.
+9. **Use `MusicFilter` for combined queries** — filter tracks by genre + year/decade in a single call rather than filtering in memory.
+10. **Use grouping methods with filters for cross-queries** — e.g., `GetGenresAsync(new MusicFilter { Decade = 1990 })` to find genres represented in the 90s.
+
+## Filtering Examples
+
+```csharp
+// All Rock tracks
+var rockTracks = await library.GetTracksAsync(new MusicFilter { Genre = "Rock" });
+
+// All tracks from the 1990s
+var nineties = await library.GetTracksAsync(new MusicFilter { Decade = 1990 });
+
+// Rock tracks from 1995
+var rock95 = await library.GetTracksAsync(new MusicFilter { Genre = "Rock", Year = 1995 });
+
+// Genres in the 2000s (with counts)
+var genres2000s = await library.GetGenresAsync(new MusicFilter { Decade = 2000 });
+
+// Years for Jazz (with counts)
+var jazzYears = await library.GetYearsAsync(new MusicFilter { Genre = "Jazz" });
+
+// Decades for Pop (with counts)
+var popDecades = await library.GetDecadesAsync(new MusicFilter { Genre = "Pop" });
+
+// Combined: genres matching "rock" search in the 1980s
+var rock80s = await library.GetGenresAsync(new MusicFilter { Decade = 1980, SearchQuery = "rock" });
+```

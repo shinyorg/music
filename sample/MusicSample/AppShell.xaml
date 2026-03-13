@@ -9,6 +9,8 @@
     <TabBar>
         <ShellContent Title="Library" ContentTemplate="{DataTemplate local:MainPage}" Route="main" />
         <ShellContent Title="Genres" ContentTemplate="{DataTemplate local:GenresPage}" Route="genres" />
+        <ShellContent Title="Decades" ContentTemplate="{DataTemplate local:DecadesPage}" Route="decades" />
+        <ShellContent Title="Years" ContentTemplate="{DataTemplate local:YearsPage}" Route="years" />
     </TabBar>
 
 </Shell>

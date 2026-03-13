@@ -17,6 +17,9 @@ public static class MauiProgram
 
         builder.Services.AddShinyMusic();
         builder.Services.AddTransient<MainPage>();
+        builder.Services.AddTransient<GenresPage>();
+        builder.Services.AddTransient<DecadesPage>();
+        builder.Services.AddTransient<YearsPage>();
 
         return builder.Build();
     }

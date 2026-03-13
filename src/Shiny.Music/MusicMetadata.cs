@@ -28,6 +28,11 @@ namespace Shiny.Music;
 /// via <c>MPMusicPlayerController</c> for Apple Music subscription content.
 /// This is ignored on Android.
 /// </param>
+/// <param name="Year">
+/// The release year of the track, or <c>null</c> if the platform does not provide this information
+/// or the track has no year metadata set.
+/// On Android this comes from <c>MediaStore.Audio.Media.YEAR</c>; on iOS from <c>MPMediaItem.Year</c>.
+/// </param>
 public record MusicMetadata(
     string Id,
     string? Title,
@@ -38,7 +43,8 @@ public record MusicMetadata(
     string? AlbumArtUri,
     bool? IsExplicit,
     string ContentUri,
-    string? StoreId = null
+    string? StoreId = null,
+    int? Year = null
 )
 {
     /// <summary>
