@@ -483,7 +483,7 @@ public class MediaLibrary : IMediaLibrary
                     var membersUri = MediaStore.Audio.Playlists.Members.GetContentUri("external", id)!;
                     using var membersCursor = activity.ContentResolver!.Query(
                         membersUri,
-                        new[] { MediaStore.Audio.Playlists.Members.InterfaceConsts.AudioId },
+                        [ MediaStore.Audio.Playlists.Members.AudioId ],
                         null, null, null
                     );
                     var count = membersCursor?.Count ?? 0;
@@ -509,7 +509,7 @@ public class MediaLibrary : IMediaLibrary
 
             var projection = new[]
             {
-                MediaStore.Audio.Playlists.Members.InterfaceConsts.AudioId,
+                MediaStore.Audio.Playlists.Members.AudioId,
                 MediaStore.Audio.Media.InterfaceConsts.Title,
                 MediaStore.Audio.Media.InterfaceConsts.Artist,
                 MediaStore.Audio.Media.InterfaceConsts.Album,
@@ -517,7 +517,7 @@ public class MediaLibrary : IMediaLibrary
                 MediaStore.Audio.Media.InterfaceConsts.AlbumId,
                 MediaStore.Audio.Media.InterfaceConsts.Data,
                 MediaStore.Audio.Media.InterfaceConsts.Year,
-                MediaStore.Audio.Playlists.Members.InterfaceConsts.PlayOrder
+                MediaStore.Audio.Playlists.Members.PlayOrder
             };
 
             using var cursor = activity.ContentResolver!.Query(
@@ -525,14 +525,14 @@ public class MediaLibrary : IMediaLibrary
                 projection,
                 MediaStore.Audio.Media.InterfaceConsts.IsMusic + " != 0",
                 null,
-                MediaStore.Audio.Playlists.Members.InterfaceConsts.PlayOrder + " ASC"
+                MediaStore.Audio.Playlists.Members.PlayOrder + " ASC"
             );
 
             if (cursor != null)
             {
                 while (cursor.MoveToNext())
                 {
-                    var trackId = cursor.GetLong(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Playlists.Members.InterfaceConsts.AudioId));
+                    var trackId = cursor.GetLong(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Playlists.Members.AudioId));
                     var title = cursor.GetString(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Media.InterfaceConsts.Title));
                     var artist = cursor.GetString(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Media.InterfaceConsts.Artist));
                     var album = cursor.GetString(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Media.InterfaceConsts.Album));

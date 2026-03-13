@@ -296,7 +296,7 @@ public class MediaLibrary : IMediaLibrary
             var query = MPMediaQuery.PlaylistsQuery;
             query.AddFilterPredicate(MPMediaPropertyPredicate.PredicateWithValue(
                 NSNumber.FromUInt64(persistentId),
-                MPMediaPlaylist.PersistentIDProperty,
+                MPMediaPlaylistProperty.PersistentID,
                 MPMediaPredicateComparison.EqualsTo
             ));
 
@@ -304,13 +304,13 @@ public class MediaLibrary : IMediaLibrary
             var playlist = collections.OfType<MPMediaPlaylist>().FirstOrDefault();
 
             if (playlist == null)
-                return (IReadOnlyList<MusicMetadata>)Array.Empty<MusicMetadata>();
+                return [];
 
-            var tracks = (playlist.Items ?? Array.Empty<MPMediaItem>())
+            var tracks = (playlist.Items ?? [])
                 .Select(ToMusicMetadata)
                 .ToList();
 
-            return (IReadOnlyList<MusicMetadata>)tracks.AsReadOnly();
+            return tracks.AsReadOnly();
         });
     }
 
