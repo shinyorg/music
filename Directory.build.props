@@ -4,12 +4,12 @@
         <LangVersion>latest</LangVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
-        <Authors>aritchie;ShinyLib</Authors>
         <MauiVersion>10.0.41</MauiVersion>
 
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
-        
+
+        <Authors>aritchie;ShinyLib</Authors>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/shinyorg/music</PackageProjectUrl>
         <RepositoryUrl>https://github.com/shinyorg/music</RepositoryUrl>
