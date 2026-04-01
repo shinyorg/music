@@ -1,13 +1,14 @@
 #if IOS || ANDROID
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Shiny.Music;
 
-namespace Shiny.Music;
+namespace Shiny;
 
 /// <summary>
 /// Extension methods for registering Shiny.Music services with the dependency injection container.
 /// </summary>
-public static class ServiceCollectionExtensions
+public static class MusicServiceCollectionExtensions
 {
     /// <summary>
     /// Registers <see cref="IMediaLibrary"/> and <see cref="IMusicPlayer"/> with the service collection.
