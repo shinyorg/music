@@ -8,6 +8,7 @@ public class MusicPlayer : IMusicPlayer
     Android.Media.MediaPlayer? player;
     MusicMetadata? currentTrack;
     PlaybackState state = PlaybackState.Stopped;
+    float volume = 1.0f;
 
     public PlaybackState State => this.state;
     public MusicMetadata? CurrentTrack => this.currentTrack;
@@ -17,6 +18,16 @@ public class MusicPlayer : IMusicPlayer
 
     public TimeSpan Duration =>
         this.player != null ? TimeSpan.FromMilliseconds(this.player.Duration) : TimeSpan.Zero;
+
+    public float Volume
+    {
+        get => this.volume;
+        set
+        {
+            this.volume = Math.Clamp(value, 0f, 1f);
+            this.player?.SetVolume(this.volume, this.volume);
+        }
+    }
 
     public event EventHandler<PlaybackState>? StateChanged;
     public event EventHandler? PlaybackCompleted;
@@ -38,6 +49,7 @@ public class MusicPlayer : IMusicPlayer
 
         var uri = Uri.Parse(track.ContentUri)!;
         this.player.SetDataSource(activity, uri);
+        this.player.SetVolume(this.volume, this.volume);
         this.player.Prepare();
         this.player.Start();
 

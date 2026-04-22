@@ -15,6 +15,7 @@ public class MusicPlayer : IMusicPlayer
     PlaybackState state = PlaybackState.Stopped;
     ActivePlayerKind activeKind = ActivePlayerKind.None;
     bool explicitStop;
+    float volume = 1.0f;
 
     MPMusicPlayerController AppPlayer => MPMusicPlayerController.ApplicationMusicPlayer;
 
@@ -29,6 +30,17 @@ public class MusicPlayer : IMusicPlayer
             TimeSpan.FromSeconds(this.AppPlayer.CurrentPlaybackTime),
         _ => TimeSpan.Zero
     };
+
+    public float Volume
+    {
+        get => this.volume;
+        set
+        {
+            this.volume = Math.Clamp(value, 0f, 1f);
+            if (this.avPlayer != null)
+                this.avPlayer.Volume = this.volume;
+        }
+    }
 
     public TimeSpan Duration => this.activeKind switch
     {
@@ -73,6 +85,7 @@ public class MusicPlayer : IMusicPlayer
 
         var playerItem = new AVPlayerItem(url);
         this.avPlayer = new AVPlayer(playerItem);
+        this.avPlayer.Volume = this.volume;
 
         this.completionObserver = NSNotificationCenter.DefaultCenter.AddObserver(
             AVPlayerItem.DidPlayToEndTimeNotification,

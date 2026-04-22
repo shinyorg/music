@@ -104,6 +104,16 @@ public interface IMediaLibrary
     Task<IReadOnlyList<MusicMetadata>> GetPlaylistTracksAsync(string playlistId);
 
     /// <summary>
+    /// Gets the file path to the album artwork image for the specified track.
+    /// On Android, this returns the content URI for the album art from MediaStore.
+    /// On iOS, this exports the <c>MPMediaItem.Artwork</c> image to a cached file and returns its path.
+    /// Returns <c>null</c> if no artwork is available for the track.
+    /// </summary>
+    /// <param name="trackId">The platform-specific track identifier from <see cref="MusicMetadata.Id"/>.</param>
+    /// <returns>A file path or content URI to the album artwork image, or <c>null</c> if unavailable.</returns>
+    Task<string?> GetAlbumArtPathAsync(string trackId);
+
+    /// <summary>
     /// Checks whether the user has an active music streaming subscription that allows catalog playback.
     /// On iOS, this checks for Apple Music subscription capability via <c>SKCloudServiceController</c>.
     /// On Android, this always returns <c>false</c>.
