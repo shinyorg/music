@@ -20,6 +20,7 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Maui.Controls"/>
+        <PackageReference Include="Shiny.Maui.Controls" />
     </ItemGroup>
 
     <ItemGroup>
@@ -34,5 +35,4 @@
     <ItemGroup>
         <ProjectReference Include="..\..\src\Shiny.Music\Shiny.Music.csproj"/>
     </ItemGroup>
-
 </Project>

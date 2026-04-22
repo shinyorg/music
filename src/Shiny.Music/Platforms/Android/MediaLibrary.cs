@@ -564,5 +564,55 @@ public class MediaLibrary : IMediaLibrary
         });
     }
 
+    public Task<string?> GetAlbumArtPathAsync(string trackId)
+    {
+        return Task.Run(() =>
+        {
+            var activity = GetActivity();
+
+            if (!long.TryParse(trackId, out var id))
+                return null;
+
+            var cacheDir = Path.Combine(
+                activity.CacheDir!.AbsolutePath,
+                "albumart"
+            );
+            var filePath = Path.Combine(cacheDir, $"{trackId}.jpg");
+            if (File.Exists(filePath))
+                return filePath;
+
+            var projection = new[] { MediaStore.Audio.Media.InterfaceConsts.AlbumId };
+            var selection = MediaStore.Audio.Media.InterfaceConsts.Id + " = ?";
+            var selectionArgs = new[] { id.ToString() };
+
+            using var cursor = activity.ContentResolver!.Query(
+                MediaStore.Audio.Media.ExternalContentUri!, projection, selection, selectionArgs, null);
+
+            if (cursor == null || !cursor.MoveToFirst())
+                return null;
+
+            var albumId = cursor.GetLong(0);
+            var albumArtUri = ContentUris.WithAppendedId(
+                Uri.Parse("content://media/external/audio/albumart")!, albumId
+            );
+
+            try
+            {
+                using var stream = activity.ContentResolver.OpenInputStream(albumArtUri!);
+                if (stream == null)
+                    return null;
+
+                Directory.CreateDirectory(cacheDir);
+                using var fileStream = File.Create(filePath);
+                stream.CopyTo(fileStream);
+                return filePath;
+            }
+            catch
+            {
+                return null;
+            }
+        });
+    }
+
     public Task<bool> HasStreamingSubscriptionAsync() => Task.FromResult(false);
 }

@@ -2,10 +2,11 @@ using AVFoundation;
 using Foundation;
 using MediaPlayer;
 using StoreKit;
+using UIKit;
 
 namespace Shiny.Music;
 
-public class MediaLibrary : IMediaLibrary
+public class MediaLibrary : IMediaLibrary, ILyricsProvider
 {
     public Task<PermissionStatus> CheckPermissionAsync()
     {
@@ -311,6 +312,70 @@ public class MediaLibrary : IMediaLibrary
                 .ToList();
 
             return tracks.AsReadOnly();
+        });
+    }
+
+    public Task<LyricsResult?> GetLyricsAsync(MusicMetadata track)
+    {
+        return Task.Run(() =>
+        {
+            if (!ulong.TryParse(track.Id, out var persistentId))
+                return null;
+
+            var query = new MPMediaQuery();
+            query.AddFilterPredicate(MPMediaPropertyPredicate.PredicateWithValue(
+                NSNumber.FromUInt64(persistentId),
+                MPMediaItem.PersistentIDProperty
+            ));
+
+            var item = query.Items?.FirstOrDefault();
+            var lyrics = item?.Lyrics;
+
+            if (string.IsNullOrWhiteSpace(lyrics))
+                return null;
+
+            return new LyricsResult(lyrics, null);
+        });
+    }
+
+    public Task<string?> GetAlbumArtPathAsync(string trackId)
+    {
+        return Task.Run(() =>
+        {
+            if (!ulong.TryParse(trackId, out var persistentId))
+                return null;
+
+            var query = new MPMediaQuery();
+            query.AddFilterPredicate(MPMediaPropertyPredicate.PredicateWithValue(
+                NSNumber.FromUInt64(persistentId),
+                MPMediaItem.PersistentIDProperty
+            ));
+
+            var item = query.Items?.FirstOrDefault();
+            var artwork = item?.Artwork;
+            if (artwork == null)
+                return null;
+
+            var image = artwork.ImageWithSize(new CoreGraphics.CGSize(600, 600));
+            if (image == null)
+                return null;
+
+            var cacheDir = Path.Combine(
+                NSSearchPath.GetDirectories(NSSearchPathDirectory.CachesDirectory, NSSearchPathDomain.User)[0],
+                "albumart"
+            );
+            Directory.CreateDirectory(cacheDir);
+
+            var filePath = Path.Combine(cacheDir, $"{trackId}.jpg");
+            if (File.Exists(filePath))
+                return filePath;
+
+            var jpegData = image.AsJPEG(0.85f);
+            if (jpegData == null)
+                return null;
+
+            jpegData.Save(filePath, true);
+            return filePath;
         });
     }
 

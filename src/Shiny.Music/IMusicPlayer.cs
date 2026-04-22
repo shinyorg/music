@@ -28,6 +28,11 @@ public interface IMusicPlayer : IDisposable
     TimeSpan Duration { get; }
 
     /// <summary>
+    /// Gets or sets the playback volume. Value ranges from 0.0 (silent) to 1.0 (full volume). Default is 1.0.
+    /// </summary>
+    float Volume { get; set; }
+
+    /// <summary>
     /// Loads and begins playing the specified track. Any currently playing track is stopped first.
     /// </summary>
     /// <param name="track">The track to play. The <see cref="MusicMetadata.ContentUri"/> must not be empty.</param>
