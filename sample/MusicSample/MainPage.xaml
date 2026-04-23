@@ -3,13 +3,35 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:MusicSample"
              x:Class="MusicSample.MainPage"
-             Title="Shiny Music"
-             Shell.TabBarIsVisible="False">
+             Shell.TabBarIsVisible="False"
+             Shell.NavBarIsVisible="False">
 
+    <Grid>
     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,12,16,0" RowSpacing="12">
 
+        <!-- Custom Navigation Bar -->
+        <VerticalStackLayout Grid.Row="0" Spacing="2" Padding="0,4,0,0">
+            <Label Text="Shiny Music"
+                   FontSize="22"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center" />
+            <HorizontalStackLayout HorizontalOptions="Center" Spacing="4">
+                <Label Text="{Binding SelectedCategory}"
+                       FontSize="14"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                       VerticalOptions="Center" />
+                <Label Text="&#x25BE;"
+                       FontSize="14"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                       VerticalOptions="Center" />
+                <HorizontalStackLayout.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding ShowCategoryPickerCommand}" />
+                </HorizontalStackLayout.GestureRecognizers>
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+
         <!-- Permission Banner -->
-        <Border Grid.Row="0"
+        <Border Grid.Row="1"
                 IsVisible="{Binding NeedsPermission}"
                 StrokeThickness="0"
                 BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
@@ -37,37 +59,6 @@
                         Padding="16,0" />
             </Grid>
         </Border>
-
-        <!-- Category Tabs -->
-        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
-            <HorizontalStackLayout Spacing="8">
-                <Button Text="Library"
-                        Command="{Binding SelectCategoryCommand}" CommandParameter="Library"
-                        CornerRadius="18" HeightRequest="36" FontSize="13" Padding="16,0"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource CardDark}}"
-                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-                <Button Text="Playlists"
-                        Command="{Binding SelectCategoryCommand}" CommandParameter="Playlists"
-                        CornerRadius="18" HeightRequest="36" FontSize="13" Padding="16,0"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource CardDark}}"
-                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-                <Button Text="Genres"
-                        Command="{Binding SelectCategoryCommand}" CommandParameter="Genres"
-                        CornerRadius="18" HeightRequest="36" FontSize="13" Padding="16,0"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource CardDark}}"
-                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-                <Button Text="Decades"
-                        Command="{Binding SelectCategoryCommand}" CommandParameter="Decades"
-                        CornerRadius="18" HeightRequest="36" FontSize="13" Padding="16,0"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource CardDark}}"
-                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-                <Button Text="Years"
-                        Command="{Binding SelectCategoryCommand}" CommandParameter="Years"
-                        CornerRadius="18" HeightRequest="36" FontSize="13" Padding="16,0"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource CardDark}}"
-                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-            </HorizontalStackLayout>
-        </ScrollView>
 
         <!-- Search Bar -->
         <Border Grid.Row="2"
@@ -210,6 +201,19 @@
 
         <!-- Player Bar -->
         <local:PlayerSheet Grid.Row="4" BindingContext="{Binding Player}" />
+    </Grid>
+
+    <!-- Loading Overlay -->
+    <Grid IsVisible="{Binding IsBusy}"
+          BackgroundColor="{AppThemeBinding Light=#80FFFFFF, Dark=#80000000}"
+          InputTransparent="False">
+        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center"
+                           HeightRequest="48"
+                           WidthRequest="48"
+                           Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+    </Grid>
     </Grid>
 
 </ContentPage>

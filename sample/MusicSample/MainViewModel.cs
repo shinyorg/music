@@ -16,6 +16,7 @@ public partial class MainViewModel(
 ) : ObservableObject, IPageLifecycleAware
 {
     [ObservableProperty] bool needsPermission = true;
+    [ObservableProperty] bool isBusy;
     [ObservableProperty] string selectedCategory = "Library";
     [ObservableProperty] ObservableCollection<GroupItem> groups = [];
     [ObservableProperty] bool showGroups;
@@ -52,6 +53,19 @@ public partial class MainViewModel(
     }
 
     [RelayCommand]
+    async Task ShowCategoryPicker()
+    {
+        var result = await dialogs.ActionSheet(
+            "Select Category",
+            "Cancel",
+            null,
+            "Library", "Playlists", "Genres", "Decades", "Years"
+        );
+        if (result != "Cancel")
+            await SelectCategory(result);
+    }
+
+    [RelayCommand]
     async Task SelectCategory(string category)
     {
         SelectedCategory = category;
@@ -67,9 +81,17 @@ public partial class MainViewModel(
             return;
         }
 
-        var results = await library.SearchTracksAsync(query);
-        await SetTracks(results);
-        ShowGroups = false;
+        IsBusy = true;
+        try
+        {
+            var results = await library.SearchTracksAsync(query);
+            await SetTracks(results);
+            ShowGroups = false;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]
@@ -137,6 +159,9 @@ public partial class MainViewModel(
     {
         if (NeedsPermission) return;
 
+        IsBusy = true;
+        try
+        {
         switch (SelectedCategory)
         {
             case "Library":
@@ -172,6 +197,11 @@ public partial class MainViewModel(
                     years.Select(y => new GroupItem(y.Value.ToString(), y.Value.ToString(), y.Count)));
                 ShowGroups = true;
                 break;
+        }
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
