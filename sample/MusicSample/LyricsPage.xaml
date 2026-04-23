@@ -4,29 +4,30 @@
              xmlns:local="clr-namespace:MusicSample"
              x:Class="MusicSample.LyricsPage"
              Title="Lyrics"
-             BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1C1C1E}">
+             BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}">
 
     <Grid RowDefinitions="Auto,Auto,*,Auto">
 
         <!-- Close Button -->
         <Button Grid.Row="0"
                 Text="Close"
-                FontSize="16"
+                FontSize="15"
+                FontAttributes="Bold"
                 BackgroundColor="Transparent"
-                TextColor="#512BD4"
+                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                 HorizontalOptions="End"
                 Clicked="OnCloseClicked"
                 Padding="16,8" />
 
         <!-- Track Info -->
-        <VerticalStackLayout Grid.Row="1" HorizontalOptions="Center" Spacing="2" Padding="16,0">
+        <VerticalStackLayout Grid.Row="1" HorizontalOptions="Center" Spacing="4" Padding="24,0,24,8">
             <Label Text="{Binding NowPlayingTitle}"
                    FontSize="20"
                    FontAttributes="Bold"
                    HorizontalTextAlignment="Center" />
             <Label Text="{Binding NowPlayingArtist}"
                    FontSize="14"
-                   TextColor="Gray"
+                   TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
                    HorizontalTextAlignment="Center" />
         </VerticalStackLayout>
 
@@ -34,41 +35,57 @@
         <CollectionView x:Name="LyricsCollection"
                         Grid.Row="2"
                         ItemsSource="{Binding LyricLines}"
-                        Margin="0,16,0,0">
+                        Margin="0,8,0,0">
+            <CollectionView.Header>
+                <BoxView HeightRequest="40" Color="Transparent" />
+            </CollectionView.Header>
+            <CollectionView.Footer>
+                <BoxView HeightRequest="40" Color="Transparent" />
+            </CollectionView.Footer>
             <CollectionView.ItemTemplate>
                 <DataTemplate>
                     <Label Text="{Binding Text}"
                            FontSize="{Binding LyricFontSize}"
                            TextColor="{Binding LyricColor}"
                            FontAttributes="{Binding LyricFontAttr}"
-                           Padding="24,6"
+                           Padding="32,8"
                            HorizontalTextAlignment="Center" />
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
 
         <!-- Mini Controls -->
-        <HorizontalStackLayout Grid.Row="3"
-                               HorizontalOptions="Center"
-                               Spacing="24"
-                               Padding="0,8,0,24">
-            <Button Text="⏹"
-                    FontSize="24"
-                    WidthRequest="48"
-                    HeightRequest="48"
-                    CornerRadius="24"
-                    BackgroundColor="#E0E0E0"
-                    TextColor="#333333"
-                    Command="{Binding StopCommand}" />
-            <Button Text="{Binding PlayPauseIcon}"
-                    FontSize="28"
-                    WidthRequest="56"
-                    HeightRequest="56"
-                    CornerRadius="28"
-                    BackgroundColor="#512BD4"
-                    TextColor="White"
-                    Command="{Binding PlayPauseCommand}" />
-        </HorizontalStackLayout>
+        <Border Grid.Row="3"
+                StrokeThickness="0"
+                BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                Padding="0,12,0,28">
+            <Border.Shadow>
+                <Shadow Brush="Black" Offset="0,-4" Radius="12" Opacity="0.08" />
+            </Border.Shadow>
+            <HorizontalStackLayout HorizontalOptions="Center" Spacing="20">
+                <Button Text="⏹"
+                        FontSize="22"
+                        WidthRequest="48"
+                        HeightRequest="48"
+                        CornerRadius="24"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Tertiary}}"
+                        TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
+                        Command="{Binding StopCommand}" />
+                <Button Text="{Binding PlayPauseIcon}"
+                        FontSize="26"
+                        WidthRequest="56"
+                        HeightRequest="56"
+                        CornerRadius="28"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                        TextColor="White"
+                        Command="{Binding PlayPauseCommand}">
+                    <Button.Shadow>
+                        <Shadow Brush="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                Offset="0,4" Radius="10" Opacity="0.35" />
+                    </Button.Shadow>
+                </Button>
+            </HorizontalStackLayout>
+        </Border>
     </Grid>
 
 </ContentPage>

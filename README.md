@@ -6,15 +6,18 @@
 
 A .NET library for accessing the device music library on **Android** and **iOS**. Provides a unified API for:
 
-- 🔐 Requesting permissions to access music
-- 🎵 Querying metadata about music on the device
-- 🔎 Filtering tracks by genre, year, decade, and search text
-- 📊 Browsing genres, years, and decades with track counts
-- 📋 Browsing playlists and their tracks
-- ▶️ Playing music files from the device library
-- 🎧 Streaming Apple Music subscription tracks via `MPMusicPlayerController` (iOS)
-- 📁 Copying music files (where permitted)
-- 🔍 Checking for active streaming subscriptions
+- Requesting permissions to access music
+- Querying metadata about music on the device
+- Filtering tracks by genre, year, decade, and search text
+- Browsing genres, years, and decades with track counts
+- Browsing playlists and their tracks
+- Playing music files from the device library
+- Controlling playback volume
+- Streaming Apple Music subscription tracks via `MPMusicPlayerController` (iOS)
+- Fetching lyrics (plain text and synced LRC format)
+- Retrieving album artwork
+- Copying music files (where permitted)
+- Checking for active streaming subscriptions
 
 ## Installation
 
@@ -31,11 +34,13 @@ public class MyPage
 {
     readonly IMediaLibrary _library;
     readonly IMusicPlayer _player;
+    readonly ILyricsProvider _lyrics;
 
-    public MyPage(IMediaLibrary library, IMusicPlayer player)
+    public MyPage(IMediaLibrary library, IMusicPlayer player, ILyricsProvider lyrics)
     {
         _library = library;
         _player = player;
+        _lyrics = lyrics;
     }
 
     async Task Example()
@@ -50,29 +55,38 @@ public class MyPage
         // 3. Play a track
         await _player.PlayAsync(tracks[0]);
 
-        // 4. Browse genres with counts
+        // 4. Control volume
+        _player.Volume = 0.75f;
+
+        // 5. Get album artwork
+        var artPath = await _library.GetAlbumArtPathAsync(tracks[0].Id);
+
+        // 6. Fetch lyrics
+        var lyrics = await _lyrics.GetLyricsAsync(tracks[0]);
+
+        // 7. Browse genres with counts
         var genres = await _library.GetGenresAsync();
 
-        // 5. Browse decades with counts
+        // 8. Browse decades with counts
         var decades = await _library.GetDecadesAsync();
 
-        // 6. Filter: Rock tracks from the 1990s
+        // 9. Filter: Rock tracks from the 1990s
         var filtered = await _library.GetTracksAsync(new MusicFilter
         {
             Genre = "Rock",
             Decade = 1990
         });
 
-        // 7. Cross-query: genres within the 2000s
+        // 10. Cross-query: genres within the 2000s
         var genresIn2000s = await _library.GetGenresAsync(new MusicFilter { Decade = 2000 });
 
-        // 8. Browse playlists
+        // 11. Browse playlists
         var playlists = await _library.GetPlaylistsAsync();
 
-        // 9. Get tracks in a playlist
+        // 12. Get tracks in a playlist
         var playlistTracks = await _library.GetPlaylistTracksAsync(playlists[0].Id);
 
-        // 10. Copy a track
+        // 13. Copy a track
         var dest = Path.Combine(FileSystem.AppDataDirectory, "copy.m4a");
         var success = await _library.CopyTrackAsync(tracks[0], dest);
     }
@@ -118,7 +132,7 @@ Add these to your `AndroidManifest.xml`:
 <string>This app needs access to your music library to browse and play your music.</string>
 ```
 
-> ⚠️ **This is mandatory.** Your app will crash on launch if you attempt to access the music library without this key.
+> **This is mandatory.** Your app will crash on launch if you attempt to access the music library without this key.
 
 #### Notes
 
@@ -129,8 +143,8 @@ Add these to your `AndroidManifest.xml`:
 - **Streaming playback** uses `MPMusicPlayerController.SystemMusicPlayer` for Apple Music subscription tracks with a `StoreId`
 - `HasStreamingSubscriptionAsync()` checks `SKCloudServiceController` for the `MusicCatalogPlayback` capability
 - **Copy Limitations**:
-  - ✅ Locally synced / purchased (non-DRM) tracks can be exported via `AVAssetExportSession`
-  - ❌ **Apple Music subscription (DRM-protected) tracks cannot be copied.** The `AssetURL` is empty for these items, and iOS does not provide filesystem access to DRM content.
+  - Locally synced / purchased (non-DRM) tracks can be exported via `AVAssetExportSession`
+  - **Apple Music subscription (DRM-protected) tracks cannot be copied.** The `AssetURL` is empty for these items, and iOS does not provide filesystem access to DRM content.
   - The `CopyTrackAsync` method returns `false` for tracks that cannot be exported.
   - Exported format is Apple M4A (`.m4a`)
 
@@ -150,14 +164,44 @@ No special entitlements are required beyond the Info.plist usage description. Th
 | `CheckPermissionAsync()` | Checks current permission status without prompting |
 | `GetAllTracksAsync()` | Returns all music tracks on the device |
 | `SearchTracksAsync(query)` | Searches tracks by title, artist, or album |
-| `GetTracksAsync(filter)` | Returns tracks matching a `MusicFilter` (genre, year, decade, search — combined with AND logic) |
+| `GetTracksAsync(filter)` | Returns tracks matching a `MusicFilter` (genre, year, decade, search -- combined with AND logic) |
 | `GetGenresAsync(filter?)` | Returns distinct genres with track counts; optionally filtered by year/decade/search |
 | `GetYearsAsync(filter?)` | Returns distinct release years with track counts; optionally filtered by genre/decade/search |
 | `GetDecadesAsync(filter?)` | Returns distinct decades with track counts; optionally filtered by genre/year/search |
 | `GetPlaylistsAsync()` | Returns all playlists with song counts, sorted alphabetically |
 | `GetPlaylistTracksAsync(playlistId)` | Returns all tracks in the specified playlist, in playlist order |
+| `GetAlbumArtPathAsync(trackId)` | Returns a file path to album artwork for the track, or `null` |
 | `CopyTrackAsync(track, destPath)` | Copies a track to the specified path; returns `false` if not possible |
 | `HasStreamingSubscriptionAsync()` | Checks for an active streaming subscription (iOS: Apple Music; Android: always `false`) |
+
+### `IMusicPlayer`
+
+| Member | Description |
+|---|---|
+| `PlayAsync(track)` | Loads and plays the specified track |
+| `Pause()` | Pauses current playback |
+| `Resume()` | Resumes after pausing |
+| `Stop()` | Stops playback and releases the track |
+| `Seek(position)` | Seeks to a position in the track |
+| `State` | Current `PlaybackState` (Stopped/Playing/Paused) |
+| `CurrentTrack` | The currently loaded `MusicMetadata` |
+| `Position` / `Duration` | Current position and total duration |
+| `Volume` | Playback volume from 0.0 to 1.0 (default 1.0) |
+| `StateChanged` | Event fired when playback state changes |
+| `PlaybackCompleted` | Event fired when a track finishes |
+
+### `ILyricsProvider`
+
+| Method | Description |
+|---|---|
+| `GetLyricsAsync(track)` | Returns lyrics for the track, or `null` if unavailable |
+
+### `LyricsResult`
+
+| Property | Type | Description |
+|---|---|---|
+| `PlainLyrics` | `string?` | Plain text (unsynchronized) lyrics |
+| `SyncedLyrics` | `string?` | Synchronized lyrics in LRC format with timestamps |
 
 ### `MusicFilter`
 
@@ -170,38 +214,6 @@ All properties are optional and combined with AND logic. Pass to `GetTracksAsync
 | `Decade` | `int?` | Filter by decade start year (e.g., 1990 for the 1990s) |
 | `SearchQuery` | `string?` | Text search across title, artist, and album |
 
-### `GroupedCount<T>`
-
-Returned by `GetGenresAsync`, `GetYearsAsync`, and `GetDecadesAsync`.
-
-| Property | Type | Description |
-|---|---|---|
-| `Value` | `T` | The grouped value (`string` for genres, `int` for years/decades) |
-| `Count` | `int` | Number of tracks in this group |
-
-### `PlaylistInfo`
-
-| Property | Type | Description |
-|---|---|---|
-| `Id` | `string` | Platform-specific unique identifier for the playlist |
-| `Name` | `string` | The display name of the playlist |
-| `SongCount` | `int` | The number of tracks in the playlist |
-
-### `IMusicPlayer`
-
-| Member | Description |
-|---|---|
-| `PlayAsync(track)` | Loads and plays the specified track (uses `AVAudioPlayer` or `MPMusicPlayerController` on iOS based on available URIs) |
-| `Pause()` | Pauses current playback |
-| `Resume()` | Resumes after pausing |
-| `Stop()` | Stops playback and releases the track |
-| `Seek(position)` | Seeks to a position in the track |
-| `State` | Current `PlaybackState` (Stopped/Playing/Paused) |
-| `CurrentTrack` | The currently loaded `MusicMetadata` |
-| `Position` / `Duration` | Current position and total duration |
-| `StateChanged` | Event fired when playback state changes |
-| `PlaybackCompleted` | Event fired when a track finishes |
-
 ### `MusicMetadata`
 
 | Property | Type | Description |
@@ -213,33 +225,38 @@ Returned by `GetGenresAsync`, `GetYearsAsync`, and `GetDecadesAsync`.
 | `Genre` | `string?` | Genre (may be null) |
 | `Duration` | `TimeSpan` | Track duration |
 | `AlbumArtUri` | `string?` | Album art URI (Android only; null on iOS) |
-| `IsExplicit` | `bool?` | Whether the track is marked as explicit content. iOS only via `MPMediaItem.IsExplicitItem`; always `null` on Android. |
+| `IsExplicit` | `bool?` | Explicit content flag (iOS only; null on Android) |
 | `ContentUri` | `string` | URI used for playback and file operations |
-| `StoreId` | `string?` | Apple Music catalog ID for streaming playback via `MPMusicPlayerController` (iOS only; `null` on Android) |
-| `Year` | `int?` | Release year of the track, or `null` if not available. Android: `MediaStore.Audio.Media.YEAR`; iOS: derived from `MPMediaItem.ReleaseDate`. |
+| `StoreId` | `string?` | Apple Music catalog ID for streaming (iOS only) |
+| `Year` | `int?` | Release year |
+
+### `PlaylistInfo`
+
+| Property | Type | Description |
+|---|---|---|
+| `Id` | `string` | Platform-specific unique identifier for the playlist |
+| `Name` | `string` | The display name of the playlist |
+| `SongCount` | `int` | The number of tracks in the playlist |
+
+### `GroupedCount<T>`
+
+| Property | Type | Description |
+|---|---|---|
+| `Value` | `T` | The grouped value (`string` for genres, `int` for years/decades) |
+| `Count` | `int` | Number of tracks in this group |
 
 ## Sample App
 
-The `sample/MusicSample` project is a .NET MAUI app that demonstrates all library features:
-
-1. **Permission Request** — Tap "Request Permission" to prompt for music access
-2. **Browse** — Tap "Load All" to list all music on the device
-3. **Search** — Type a query and tap "Search" to filter by title/artist/album
-4. **Play/Pause/Stop** — Select a track and use the playback controls
-5. **Copy** — Select a track and tap "Copy" to export it to app storage
-6. **Genres** — Switch to the "Genres" tab to view all distinct genres with track counts
-7. **Decades** — Switch to the "Decades" tab to view decades with track counts
-8. **Years** — Switch to the "Years" tab to view release years with track counts
-9. **Playlists** — Switch to the "Playlists" tab to view playlists and their tracks
+The `sample/MusicSample` project is a .NET MAUI app that demonstrates all library features including browsing, filtering, playback with volume control, album art display, and lyrics with synced highlighting.
 
 ### Running the Sample
 
 ```bash
 # Android
-dotnet build sample/MusicSample -f net9.0-android -t:Run
+dotnet build sample/MusicSample -f net10.0-android -t:Run
 
 # iOS (requires Mac with Xcode)
-dotnet build sample/MusicSample -f net9.0-ios -t:Run
+dotnet build sample/MusicSample -f net10.0-ios -t:Run
 ```
 
 > **Note**: Music library access requires a physical device. Simulators/emulators typically have no music content.

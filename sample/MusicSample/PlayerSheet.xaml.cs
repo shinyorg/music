@@ -26,12 +26,22 @@ public partial class PlayerSheet : ContentView
     {
         var albumArt = new Image
         {
-            WidthRequest = 40,
-            HeightRequest = 40,
+            WidthRequest = 42,
+            HeightRequest = 42,
             Aspect = Aspect.AspectFill,
-            Clip = new RoundRectangleGeometry(new CornerRadius(6), new Rect(0, 0, 40, 40))
+            Clip = new RoundRectangleGeometry(new CornerRadius(8), new Rect(0, 0, 42, 42))
         };
         albumArt.SetBinding(Image.SourceProperty, nameof(PlayerViewModel.AlbumArtSource));
+
+        var albumArtBorder = new Border
+        {
+            StrokeThickness = 0,
+            WidthRequest = 42,
+            HeightRequest = 42,
+            Content = albumArt,
+            StrokeShape = new RoundRectangle { CornerRadius = new CornerRadius(8) },
+            Shadow = new Shadow { Brush = Colors.Black, Offset = new Point(0, 2), Radius = 4, Opacity = 0.2f }
+        };
 
         var titleLabel = new Label
         {
@@ -44,20 +54,22 @@ public partial class PlayerSheet : ContentView
         var artistLabel = new Label
         {
             FontSize = 12,
-            TextColor = Colors.Gray,
             LineBreakMode = LineBreakMode.TailTruncation
         };
+        artistLabel.SetAppThemeColor(Label.TextColorProperty,
+            Color.FromArgb("#919191"), Color.FromArgb("#ACACAC"));
         artistLabel.SetBinding(Label.TextProperty, nameof(PlayerViewModel.NowPlayingArtist));
 
         var infoStack = new VerticalStackLayout
         {
             VerticalOptions = LayoutOptions.Center,
+            Spacing = 2,
             Children = { titleLabel, artistLabel }
         };
 
         var playBtn = new Button
         {
-            FontSize = 20,
+            FontSize = 22,
             WidthRequest = 40,
             HeightRequest = 40,
             CornerRadius = 20,
@@ -65,6 +77,8 @@ public partial class PlayerSheet : ContentView
             BackgroundColor = Colors.Transparent
         };
         playBtn.SetBinding(Button.TextProperty, nameof(PlayerViewModel.PlayPauseIcon));
+        playBtn.SetAppThemeColor(Button.TextColorProperty,
+            Color.FromArgb("#6C5CE7"), Color.FromArgb("#A29BFE"));
         playBtn.Clicked += (_, _) =>
         {
             if (BindingContext is PlayerViewModel vm)
@@ -76,14 +90,15 @@ public partial class PlayerSheet : ContentView
             Padding = new Thickness(16, 10),
             ColumnDefinitions =
             {
-                new ColumnDefinition(40),
+                new ColumnDefinition(42),
                 new ColumnDefinition(GridLength.Star),
                 new ColumnDefinition(GridLength.Auto)
             },
             ColumnSpacing = 12,
-            HeightRequest = 56,
-            BackgroundColor = Color.FromArgb("#F2F2F7")
+            HeightRequest = 62
         };
+        grid.SetAppThemeColor(Grid.BackgroundColorProperty,
+            Color.FromArgb("#FFFFFF"), Color.FromArgb("#2A2A3E"));
 
         var tapGesture = new TapGestureRecognizer();
         tapGesture.Tapped += (_, _) =>
@@ -93,7 +108,7 @@ public partial class PlayerSheet : ContentView
         };
         grid.GestureRecognizers.Add(tapGesture);
 
-        grid.Add(albumArt, 0);
+        grid.Add(albumArtBorder, 0);
         grid.Add(infoStack, 1);
         grid.Add(playBtn, 2);
 

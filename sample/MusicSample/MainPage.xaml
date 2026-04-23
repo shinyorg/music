@@ -6,95 +6,157 @@
              Title="Shiny Music"
              Shell.TabBarIsVisible="False">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,16,16,0" RowSpacing="8">
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,12,16,0" RowSpacing="12">
 
         <!-- Permission Banner -->
-        <Button Grid.Row="0"
-                Text="Grant Music Library Access"
-                Command="{Binding RequestPermissionCommand}"
+        <Border Grid.Row="0"
                 IsVisible="{Binding NeedsPermission}"
-                BackgroundColor="#512BD4"
-                TextColor="White"
-                CornerRadius="8"
-                HeightRequest="44" />
+                StrokeThickness="0"
+                BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                Padding="16,12">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="12" />
+            </Border.StrokeShape>
+            <Border.Shadow>
+                <Shadow Brush="{StaticResource Primary}" Offset="0,4" Radius="12" Opacity="0.3" />
+            </Border.Shadow>
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Text="Grant Music Library Access"
+                       TextColor="White"
+                       FontSize="15"
+                       FontAttributes="Bold"
+                       VerticalOptions="Center" />
+                <Button Grid.Column="1"
+                        Text="Allow"
+                        Command="{Binding RequestPermissionCommand}"
+                        BackgroundColor="White"
+                        TextColor="{StaticResource Primary}"
+                        CornerRadius="16"
+                        HeightRequest="32"
+                        FontSize="13"
+                        Padding="16,0" />
+            </Grid>
+        </Border>
 
         <!-- Category Tabs -->
         <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
             <HorizontalStackLayout Spacing="8">
                 <Button Text="Library"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="Library"
-                        CornerRadius="16" HeightRequest="34" FontSize="13" Padding="14,0" />
+                        CornerRadius="18" HeightRequest="36" FontSize="13" Padding="16,0"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource CardDark}}"
+                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                 <Button Text="Playlists"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="Playlists"
-                        CornerRadius="16" HeightRequest="34" FontSize="13" Padding="14,0" />
+                        CornerRadius="18" HeightRequest="36" FontSize="13" Padding="16,0"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource CardDark}}"
+                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                 <Button Text="Genres"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="Genres"
-                        CornerRadius="16" HeightRequest="34" FontSize="13" Padding="14,0" />
+                        CornerRadius="18" HeightRequest="36" FontSize="13" Padding="16,0"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource CardDark}}"
+                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                 <Button Text="Decades"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="Decades"
-                        CornerRadius="16" HeightRequest="34" FontSize="13" Padding="14,0" />
+                        CornerRadius="18" HeightRequest="36" FontSize="13" Padding="16,0"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource CardDark}}"
+                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                 <Button Text="Years"
                         Command="{Binding SelectCategoryCommand}" CommandParameter="Years"
-                        CornerRadius="16" HeightRequest="34" FontSize="13" Padding="14,0" />
+                        CornerRadius="18" HeightRequest="36" FontSize="13" Padding="16,0"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource CardDark}}"
+                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
             </HorizontalStackLayout>
         </ScrollView>
 
         <!-- Search Bar -->
-        <Entry x:Name="SearchEntry"
-               Grid.Row="2"
-               Placeholder="Search songs, artists, albums..."
-               ReturnType="Search"
-               ClearButtonVisibility="WhileEditing"
-               Completed="OnSearchCompleted" />
+        <Border Grid.Row="2"
+                StrokeThickness="0"
+                BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                Padding="4,0">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="12" />
+            </Border.StrokeShape>
+            <Border.Shadow>
+                <Shadow Brush="Black" Offset="0,2" Radius="8" Opacity="0.06" />
+            </Border.Shadow>
+            <Entry x:Name="SearchEntry"
+                   Placeholder="Search songs, artists, albums..."
+                   ReturnType="Search"
+                   ClearButtonVisibility="WhileEditing"
+                   Completed="OnSearchCompleted"
+                   BackgroundColor="Transparent"
+                   FontSize="15" />
+        </Border>
 
         <!-- Content Area -->
         <Grid Grid.Row="3">
 
-            <!-- Track List (Library / Search results) -->
+            <!-- Track List -->
             <CollectionView ItemsSource="{Binding Tracks}"
                             SelectionMode="Single"
                             SelectionChanged="OnTrackSelected"
                             IsVisible="{Binding ShowGroups, Converter={StaticResource InvertBool}}">
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
-                        <Grid Padding="12,8" ColumnDefinitions="44,*,Auto" ColumnSpacing="10">
-                            <Image Source="{Binding AlbumArt}"
-                                   WidthRequest="44"
-                                   HeightRequest="44"
-                                   Aspect="AspectFill">
-                                <Image.Clip>
-                                    <RoundRectangleGeometry CornerRadius="6" Rect="0,0,44,44" />
-                                </Image.Clip>
-                            </Image>
-                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
-                                <Label Text="{Binding Title}"
-                                       FontAttributes="Bold"
-                                       FontSize="15"
-                                       LineBreakMode="TailTruncation" />
-                                <Label FontSize="13" TextColor="Gray" LineBreakMode="TailTruncation">
-                                    <Label.FormattedText>
-                                        <FormattedString>
-                                            <Span Text="{Binding Artist}" />
-                                            <Span Text=" — " />
-                                            <Span Text="{Binding Album}" />
-                                        </FormattedString>
-                                    </Label.FormattedText>
-                                </Label>
-                            </VerticalStackLayout>
-                            <Label Grid.Column="2"
-                                   Text="{Binding Duration, StringFormat='{0:mm\\:ss}'}"
-                                   VerticalOptions="Center"
-                                   FontSize="13"
-                                   TextColor="Gray" />
-                        </Grid>
+                        <Border StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                                Margin="0,3"
+                                Padding="12,10">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <Border.Shadow>
+                                <Shadow Brush="Black" Offset="0,2" Radius="6" Opacity="0.05" />
+                            </Border.Shadow>
+                            <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="12">
+                                <Border StrokeThickness="0"
+                                        WidthRequest="48"
+                                        HeightRequest="48">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="10" />
+                                    </Border.StrokeShape>
+                                    <Border.Shadow>
+                                        <Shadow Brush="Black" Offset="0,2" Radius="4" Opacity="0.15" />
+                                    </Border.Shadow>
+                                    <Image Source="{Binding AlbumArt}"
+                                           WidthRequest="48"
+                                           HeightRequest="48"
+                                           Aspect="AspectFill" />
+                                </Border>
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                    <Label Text="{Binding Title}"
+                                           FontAttributes="Bold"
+                                           FontSize="15"
+                                           LineBreakMode="TailTruncation" />
+                                    <Label FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                                           LineBreakMode="TailTruncation">
+                                        <Label.FormattedText>
+                                            <FormattedString>
+                                                <Span Text="{Binding Artist}" />
+                                                <Span Text=" - " />
+                                                <Span Text="{Binding Album}" />
+                                            </FormattedString>
+                                        </Label.FormattedText>
+                                    </Label>
+                                </VerticalStackLayout>
+                                <Label Grid.Column="2"
+                                       Text="{Binding Duration, StringFormat='{0:mm\\:ss}'}"
+                                       VerticalOptions="Center"
+                                       FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}" />
+                            </Grid>
+                        </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
                 <CollectionView.EmptyView>
-                    <Label Text="No tracks found"
-                           HorizontalTextAlignment="Center"
-                           VerticalTextAlignment="Center"
-                           TextColor="Gray"
-                           Margin="20" />
+                    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8" Padding="40">
+                        <Label Text="No tracks found"
+                               HorizontalTextAlignment="Center"
+                               FontSize="16"
+                               TextColor="{StaticResource Gray400}" />
+                    </VerticalStackLayout>
                 </CollectionView.EmptyView>
             </CollectionView>
 
@@ -105,28 +167,48 @@
                             IsVisible="{Binding ShowGroups}">
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
-                        <Grid Padding="12,10" ColumnDefinitions="*,Auto,Auto">
-                            <Label Text="{Binding DisplayName}"
-                                   FontSize="16"
-                                   VerticalOptions="Center" />
-                            <Label Grid.Column="1"
-                                   Text="{Binding Count}"
-                                   FontSize="13"
-                                   TextColor="Gray"
-                                   VerticalOptions="Center" />
-                            <Label Grid.Column="2"
-                                   Text=">"
-                                   FontSize="16"
-                                   TextColor="Gray"
-                                   VerticalOptions="Center"
-                                   Margin="8,0,0,0" />
-                        </Grid>
+                        <Border StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                                Margin="0,3"
+                                Padding="16,14">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <Border.Shadow>
+                                <Shadow Brush="Black" Offset="0,2" Radius="6" Opacity="0.05" />
+                            </Border.Shadow>
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                <Label Text="{Binding DisplayName}"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       VerticalOptions="Center" />
+                                <Border Grid.Column="1"
+                                        StrokeThickness="0"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Tertiary}}"
+                                        Padding="10,4"
+                                        VerticalOptions="Center">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="10" />
+                                    </Border.StrokeShape>
+                                    <Label Text="{Binding Count}"
+                                           FontSize="12"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                                </Border>
+                                <Label Grid.Column="2"
+                                       Text=">"
+                                       FontSize="16"
+                                       TextColor="{StaticResource Gray400}"
+                                       VerticalOptions="Center"
+                                       Margin="4,0,0,0" />
+                            </Grid>
+                        </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
         </Grid>
 
-        <!-- Player Bar - sits in its own row, no overlay -->
+        <!-- Player Bar -->
         <local:PlayerSheet Grid.Row="4" BindingContext="{Binding Player}" />
     </Grid>
 

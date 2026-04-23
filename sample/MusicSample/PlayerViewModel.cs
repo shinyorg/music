@@ -295,8 +295,11 @@ public partial class LyricLineVM : ObservableObject
 
     public void SetActive(bool active)
     {
-        LyricFontSize = active ? 17 : 15;
-        LyricColor = active ? Color.FromArgb("#512BD4") : Colors.Gray;
+        var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
+        LyricFontSize = active ? 18 : 15;
+        LyricColor = active
+            ? (isDark ? Color.FromArgb("#A29BFE") : Color.FromArgb("#6C5CE7"))
+            : (isDark ? Color.FromArgb("#6E6E6E") : Colors.Gray);
         LyricFontAttr = active ? FontAttributes.Bold : FontAttributes.None;
     }
 }

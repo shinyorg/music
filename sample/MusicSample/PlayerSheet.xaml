@@ -9,49 +9,54 @@
                      ShowHeaderWhenMinimized="True"
                      HasBackdrop="True"
                      CloseOnBackdropTap="True"
-                     SheetCornerRadius="20"
-                     SheetBackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1C1C1E}"
-                     HandleColor="#CCCCCC"
+                     SheetCornerRadius="24"
+                     SheetBackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                     HandleColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
                      Location="Bottom">
 
         <ScrollView>
-            <VerticalStackLayout Padding="24,8,24,40" Spacing="16">
+            <VerticalStackLayout Padding="24,8,24,40" Spacing="20">
 
                 <!-- Album Art -->
                 <Border StrokeThickness="0"
                         HorizontalOptions="Center"
-                        WidthRequest="300"
-                        HeightRequest="300">
+                        WidthRequest="280"
+                        HeightRequest="280">
                     <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="16" />
+                        <RoundRectangle CornerRadius="20" />
                     </Border.StrokeShape>
+                    <Border.Shadow>
+                        <Shadow Brush="{AppThemeBinding Light={StaticResource Primary}, Dark=Black}"
+                                Offset="0,8" Radius="24" Opacity="0.3" />
+                    </Border.Shadow>
                     <Image Source="{Binding AlbumArtSource}"
                            Aspect="AspectFill"
-                           WidthRequest="300"
-                           HeightRequest="300" />
+                           WidthRequest="280"
+                           HeightRequest="280" />
                 </Border>
 
                 <!-- Track Info -->
-                <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
+                <VerticalStackLayout HorizontalOptions="Center" Spacing="4">
                     <Label Text="{Binding NowPlayingTitle}"
                            FontSize="22"
                            FontAttributes="Bold"
                            HorizontalTextAlignment="Center" />
                     <Label Text="{Binding NowPlayingArtist}"
-                           FontSize="16"
-                           TextColor="Gray"
+                           FontSize="15"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
                            HorizontalTextAlignment="Center" />
                     <Label Text="{Binding NowPlayingAlbum}"
-                           FontSize="14"
-                           TextColor="Gray"
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
                            HorizontalTextAlignment="Center" />
                 </VerticalStackLayout>
 
                 <!-- Seek Bar -->
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="40,*,40" ColumnSpacing="4">
                     <Label Text="{Binding PositionText}"
-                           FontSize="12"
-                           TextColor="Gray"
+                           FontSize="11"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
+                           HorizontalTextAlignment="Center"
                            VerticalOptions="Center" />
                     <Slider Grid.Column="1"
                             Minimum="0"
@@ -60,33 +65,43 @@
                             DragStarted="OnDragStarted"
                             DragCompleted="OnDragCompleted"
                             ValueChanged="OnSliderValueChanged"
-                            MinimumTrackColor="#512BD4"
-                            MaximumTrackColor="#E0E0E0" />
+                            MinimumTrackColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                            MaximumTrackColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
                     <Label Text="{Binding DurationText}"
                            Grid.Column="2"
-                           FontSize="12"
-                           TextColor="Gray"
+                           FontSize="11"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
+                           HorizontalTextAlignment="Center"
                            VerticalOptions="Center" />
                 </Grid>
 
                 <!-- Playback Controls -->
-                <HorizontalStackLayout HorizontalOptions="Center" Spacing="24">
+                <HorizontalStackLayout HorizontalOptions="Center" Spacing="20">
                     <Button Text="⏹"
-                            FontSize="28"
-                            WidthRequest="56"
-                            HeightRequest="56"
-                            CornerRadius="28"
-                            BackgroundColor="#E0E0E0"
-                            TextColor="#333333"
-                            Command="{Binding StopCommand}" />
+                            FontSize="24"
+                            WidthRequest="52"
+                            HeightRequest="52"
+                            CornerRadius="26"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Tertiary}}"
+                            TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
+                            Command="{Binding StopCommand}">
+                        <Button.Shadow>
+                            <Shadow Brush="Black" Offset="0,2" Radius="6" Opacity="0.1" />
+                        </Button.Shadow>
+                    </Button>
                     <Button Text="{Binding PlayPauseIcon}"
-                            FontSize="32"
+                            FontSize="30"
                             WidthRequest="64"
                             HeightRequest="64"
                             CornerRadius="32"
-                            BackgroundColor="#512BD4"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                             TextColor="White"
-                            Command="{Binding PlayPauseCommand}" />
+                            Command="{Binding PlayPauseCommand}">
+                        <Button.Shadow>
+                            <Shadow Brush="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                    Offset="0,4" Radius="12" Opacity="0.4" />
+                        </Button.Shadow>
+                    </Button>
                 </HorizontalStackLayout>
 
                 <!-- Volume -->
@@ -97,18 +112,25 @@
                             Maximum="1"
                             Value="{Binding Volume}"
                             ValueChanged="OnVolumeChanged"
-                            MinimumTrackColor="#512BD4"
-                            MaximumTrackColor="#E0E0E0" />
+                            MinimumTrackColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                            MaximumTrackColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
                     <Label Text="🔊" FontSize="14" VerticalOptions="Center" Grid.Column="2" />
                 </Grid>
 
                 <!-- Lyrics Button -->
-                <Button Text="Lyrics"
-                        FontSize="16"
-                        BackgroundColor="Transparent"
-                        TextColor="#512BD4"
+                <Button Text="View Lyrics"
+                        FontSize="15"
+                        FontAttributes="Bold"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Tertiary}}"
+                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                        CornerRadius="12"
+                        HeightRequest="44"
                         IsVisible="{Binding HasLyrics}"
-                        Clicked="OnLyricsClicked" />
+                        Clicked="OnLyricsClicked">
+                    <Button.Shadow>
+                        <Shadow Brush="Black" Offset="0,2" Radius="6" Opacity="0.08" />
+                    </Button.Shadow>
+                </Button>
 
             </VerticalStackLayout>
         </ScrollView>
