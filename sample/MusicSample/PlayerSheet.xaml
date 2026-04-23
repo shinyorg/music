@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shiny="http://shiny.net/maui/controls"
+             x:Class="MusicSample.PlayerSheet">
+
+    <shiny:SheetView x:Name="Sheet"
+                     IsOpen="{Binding IsSheetOpen, Mode=TwoWay}"
+                     ShowHeaderWhenMinimized="True"
+                     HasBackdrop="True"
+                     CloseOnBackdropTap="True"
+                     SheetCornerRadius="20"
+                     SheetBackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1C1C1E}"
+                     HandleColor="#CCCCCC"
+                     Location="Bottom">
+
+        <ScrollView>
+            <VerticalStackLayout Padding="24,8,24,40" Spacing="16">
+
+                <!-- Album Art -->
+                <Border StrokeThickness="0"
+                        HorizontalOptions="Center"
+                        WidthRequest="300"
+                        HeightRequest="300">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="16" />
+                    </Border.StrokeShape>
+                    <Image Source="{Binding AlbumArtSource}"
+                           Aspect="AspectFill"
+                           WidthRequest="300"
+                           HeightRequest="300" />
+                </Border>
+
+                <!-- Track Info -->
+                <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
+                    <Label Text="{Binding NowPlayingTitle}"
+                           FontSize="22"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center" />
+                    <Label Text="{Binding NowPlayingArtist}"
+                           FontSize="16"
+                           TextColor="Gray"
+                           HorizontalTextAlignment="Center" />
+                    <Label Text="{Binding NowPlayingAlbum}"
+                           FontSize="14"
+                           TextColor="Gray"
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+
+                <!-- Seek Bar -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                    <Label Text="{Binding PositionText}"
+                           FontSize="12"
+                           TextColor="Gray"
+                           VerticalOptions="Center" />
+                    <Slider Grid.Column="1"
+                            Minimum="0"
+                            Maximum="1"
+                            Value="{Binding SliderValue}"
+                            DragStarted="OnDragStarted"
+                            DragCompleted="OnDragCompleted"
+                            ValueChanged="OnSliderValueChanged"
+                            MinimumTrackColor="#512BD4"
+                            MaximumTrackColor="#E0E0E0" />
+                    <Label Text="{Binding DurationText}"
+                           Grid.Column="2"
+                           FontSize="12"
+                           TextColor="Gray"
+                           VerticalOptions="Center" />
+                </Grid>
+
+                <!-- Playback Controls -->
+                <HorizontalStackLayout HorizontalOptions="Center" Spacing="24">
+                    <Button Text="⏹"
+                            FontSize="28"
+                            WidthRequest="56"
+                            HeightRequest="56"
+                            CornerRadius="28"
+                            BackgroundColor="#E0E0E0"
+                            TextColor="#333333"
+                            Command="{Binding StopCommand}" />
+                    <Button Text="{Binding PlayPauseIcon}"
+                            FontSize="32"
+                            WidthRequest="64"
+                            HeightRequest="64"
+                            CornerRadius="32"
+                            BackgroundColor="#512BD4"
+                            TextColor="White"
+                            Command="{Binding PlayPauseCommand}" />
+                </HorizontalStackLayout>
+
+                <!-- Volume -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Padding="8,0">
+                    <Label Text="🔈" FontSize="14" VerticalOptions="Center" />
+                    <Slider Grid.Column="1"
+                            Minimum="0"
+                            Maximum="1"
+                            Value="{Binding Volume}"
+                            ValueChanged="OnVolumeChanged"
+                            MinimumTrackColor="#512BD4"
+                            MaximumTrackColor="#E0E0E0" />
+                    <Label Text="🔊" FontSize="14" VerticalOptions="Center" Grid.Column="2" />
+                </Grid>
+
+                <!-- Lyrics Button -->
+                <Button Text="Lyrics"
+                        FontSize="16"
+                        BackgroundColor="Transparent"
+                        TextColor="#512BD4"
+                        IsVisible="{Binding HasLyrics}"
+                        Clicked="OnLyricsClicked" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </shiny:SheetView>
+
+</ContentView>

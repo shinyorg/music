@@ -6,7 +6,7 @@ using UIKit;
 
 namespace Shiny.Music;
 
-public class MediaLibrary : IMediaLibrary, ILyricsProvider
+public class MediaLibrary : IMediaLibrary
 {
     public Task<PermissionStatus> CheckPermissionAsync()
     {
@@ -312,29 +312,6 @@ public class MediaLibrary : IMediaLibrary, ILyricsProvider
                 .ToList();
 
             return tracks.AsReadOnly();
-        });
-    }
-
-    public Task<LyricsResult?> GetLyricsAsync(MusicMetadata track)
-    {
-        return Task.Run(() =>
-        {
-            if (!ulong.TryParse(track.Id, out var persistentId))
-                return null;
-
-            var query = new MPMediaQuery();
-            query.AddFilterPredicate(MPMediaPropertyPredicate.PredicateWithValue(
-                NSNumber.FromUInt64(persistentId),
-                MPMediaItem.PersistentIDProperty
-            ));
-
-            var item = query.Items?.FirstOrDefault();
-            var lyrics = item?.Lyrics;
-
-            if (string.IsNullOrWhiteSpace(lyrics))
-                return null;
-
-            return new LyricsResult(lyrics, null);
         });
     }
 

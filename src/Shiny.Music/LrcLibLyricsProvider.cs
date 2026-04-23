@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace Shiny.Music;
 
-public class LyricsProvider(HttpClient httpClient) : ILyricsProvider
+public class LrcLibLyricsProvider(HttpClient httpClient) : ILyricsProvider
 {
     public async Task<LyricsResult?> GetLyricsAsync(MusicMetadata track)
     {

@@ -1,145 +1,133 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:MusicSample"
              x:Class="MusicSample.MainPage"
-             Title="Music Library">
+             Title="Shiny Music"
+             Shell.TabBarIsVisible="False">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="16" RowSpacing="12">
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,16,16,0" RowSpacing="8">
 
-        <!-- Permission Section -->
-        <VerticalStackLayout Grid.Row="0" Spacing="8">
-            <Label Text="Permission" FontAttributes="Bold" FontSize="18" />
-            <HorizontalStackLayout Spacing="12">
-                <Button x:Name="BtnRequestPermission"
-                        Text="Request Permission"
-                        Clicked="OnRequestPermission" />
-                <Label x:Name="LblPermissionStatus"
-                       Text="Unknown"
-                       VerticalOptions="Center"
-                       FontSize="14" />
+        <!-- Permission Banner -->
+        <Button Grid.Row="0"
+                Text="Grant Music Library Access"
+                Command="{Binding RequestPermissionCommand}"
+                IsVisible="{Binding NeedsPermission}"
+                BackgroundColor="#512BD4"
+                TextColor="White"
+                CornerRadius="8"
+                HeightRequest="44" />
+
+        <!-- Category Tabs -->
+        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+            <HorizontalStackLayout Spacing="8">
+                <Button Text="Library"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="Library"
+                        CornerRadius="16" HeightRequest="34" FontSize="13" Padding="14,0" />
+                <Button Text="Playlists"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="Playlists"
+                        CornerRadius="16" HeightRequest="34" FontSize="13" Padding="14,0" />
+                <Button Text="Genres"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="Genres"
+                        CornerRadius="16" HeightRequest="34" FontSize="13" Padding="14,0" />
+                <Button Text="Decades"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="Decades"
+                        CornerRadius="16" HeightRequest="34" FontSize="13" Padding="14,0" />
+                <Button Text="Years"
+                        Command="{Binding SelectCategoryCommand}" CommandParameter="Years"
+                        CornerRadius="16" HeightRequest="34" FontSize="13" Padding="14,0" />
             </HorizontalStackLayout>
-            <HorizontalStackLayout Spacing="4">
-                <CheckBox x:Name="ChkStreamingSubscription"
-                          IsEnabled="False" />
-                <Label Text="Streaming Subscription"
-                       VerticalOptions="Center"
-                       FontSize="14" />
-            </HorizontalStackLayout>
-        </VerticalStackLayout>
+        </ScrollView>
 
-        <!-- Search Section -->
-        <HorizontalStackLayout Grid.Row="1" Spacing="8">
-            <Entry x:Name="EntrySearch"
-                   Placeholder="Search tracks..."
-                   WidthRequest="200" />
-            <Button Text="Search" Clicked="OnSearch" />
-            <Button Text="Load All" Clicked="OnLoadAll" />
-        </HorizontalStackLayout>
+        <!-- Search Bar -->
+        <Entry x:Name="SearchEntry"
+               Grid.Row="2"
+               Placeholder="Search songs, artists, albums..."
+               ReturnType="Search"
+               ClearButtonVisibility="WhileEditing"
+               Completed="OnSearchCompleted" />
 
-        <!-- Track List -->
-        <CollectionView Grid.Row="2"
-                        x:Name="TrackList"
-                        SelectionMode="Single"
-                        SelectionChanged="OnTrackSelected">
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Grid Padding="8,4" ColumnDefinitions="*,Auto">
-                        <Grid.Triggers>
-                            <DataTrigger TargetType="Grid" Binding="{Binding IsPlayable}" Value="False">
-                                <Setter Property="Opacity" Value="0.4" />
-                            </DataTrigger>
-                        </Grid.Triggers>
-                        <VerticalStackLayout>
-                            <Label Text="{Binding Title}" FontAttributes="Bold" FontSize="14" />
-                            <Label FontSize="12" TextColor="Gray">
-                                <Label.FormattedText>
-                                    <FormattedString>
-                                        <Span Text="{Binding Artist}" />
-                                        <Span Text=" — " />
-                                        <Span Text="{Binding Album}" />
-                                    </FormattedString>
-                                </Label.FormattedText>
-                            </Label>
-                        </VerticalStackLayout>
-                        <Label Grid.Column="1"
-                               Text="{Binding Duration, StringFormat='{0:mm\\:ss}'}"
-                               VerticalOptions="Center"
-                               FontSize="12"
-                               TextColor="Gray" />
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-            <CollectionView.EmptyView>
-                <Label Text="No tracks loaded. Request permission first, then tap 'Load All'."
-                       HorizontalTextAlignment="Center"
-                       VerticalTextAlignment="Center"
-                       TextColor="Gray"
-                       Margin="20" />
-            </CollectionView.EmptyView>
-        </CollectionView>
+        <!-- Content Area -->
+        <Grid Grid.Row="3">
 
-        <!-- Playback Controls -->
-        <Grid Grid.Row="3" RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" RowSpacing="4">
-            <Label x:Name="LblNowPlaying"
-                   Text="Nothing playing"
-                   FontSize="14"
-                   FontAttributes="Bold"
-                   Grid.ColumnSpan="6"
-                   LineBreakMode="TailTruncation" />
+            <!-- Track List (Library / Search results) -->
+            <CollectionView ItemsSource="{Binding Tracks}"
+                            SelectionMode="Single"
+                            SelectionChanged="OnTrackSelected"
+                            IsVisible="{Binding ShowGroups, Converter={StaticResource InvertBool}}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="12,8" ColumnDefinitions="44,*,Auto" ColumnSpacing="10">
+                            <Image Source="{Binding AlbumArt}"
+                                   WidthRequest="44"
+                                   HeightRequest="44"
+                                   Aspect="AspectFill">
+                                <Image.Clip>
+                                    <RoundRectangleGeometry CornerRadius="6" Rect="0,0,44,44" />
+                                </Image.Clip>
+                            </Image>
+                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                                <Label Text="{Binding Title}"
+                                       FontAttributes="Bold"
+                                       FontSize="15"
+                                       LineBreakMode="TailTruncation" />
+                                <Label FontSize="13" TextColor="Gray" LineBreakMode="TailTruncation">
+                                    <Label.FormattedText>
+                                        <FormattedString>
+                                            <Span Text="{Binding Artist}" />
+                                            <Span Text=" — " />
+                                            <Span Text="{Binding Album}" />
+                                        </FormattedString>
+                                    </Label.FormattedText>
+                                </Label>
+                            </VerticalStackLayout>
+                            <Label Grid.Column="2"
+                                   Text="{Binding Duration, StringFormat='{0:mm\\:ss}'}"
+                                   VerticalOptions="Center"
+                                   FontSize="13"
+                                   TextColor="Gray" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.EmptyView>
+                    <Label Text="No tracks found"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center"
+                           TextColor="Gray"
+                           Margin="20" />
+                </CollectionView.EmptyView>
+            </CollectionView>
 
-            <!-- Seek Bar -->
-            <Grid Grid.Row="1" Grid.ColumnSpan="6" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                <Label x:Name="LblPosition"
-                       Text="0:00"
-                       FontSize="12"
-                       TextColor="Gray"
-                       VerticalOptions="Center" />
-                <Slider x:Name="SliderPosition"
-                        Grid.Column="1"
-                        Minimum="0"
-                        Maximum="1"
-                        ValueChanged="OnSliderValueChanged"
-                        DragStarted="OnSliderDragStarted"
-                        DragCompleted="OnSliderDragCompleted" />
-                <Label x:Name="LblDuration"
-                       Grid.Column="2"
-                       Text="0:00"
-                       FontSize="12"
-                       TextColor="Gray"
-                       VerticalOptions="Center" />
-            </Grid>
-
-            <Label x:Name="LblPlaybackState"
-                   Grid.Row="2"
-                   Text="Stopped"
-                   FontSize="12"
-                   VerticalOptions="Center"
-                   TextColor="Gray" />
-            <Button x:Name="BtnInfo"
-                    Grid.Row="2" Grid.Column="1"
-                    Text="ℹ️"
-                    WidthRequest="50"
-                    Clicked="OnInfo" />
-            <Button x:Name="BtnPlay"
-                    Grid.Row="2" Grid.Column="2"
-                    Text="▶"
-                    WidthRequest="50"
-                    Clicked="OnPlay" />
-            <Button x:Name="BtnPause"
-                    Grid.Row="2" Grid.Column="3"
-                    Text="⏸"
-                    WidthRequest="50"
-                    Clicked="OnPause" />
-            <Button x:Name="BtnStop"
-                    Grid.Row="2" Grid.Column="4"
-                    Text="⏹"
-                    WidthRequest="50"
-                    Clicked="OnStop" />
-            <Button x:Name="BtnCopy"
-                    Grid.Row="2" Grid.Column="5"
-                    Text="Copy"
-                    Clicked="OnCopy" />
+            <!-- Group List -->
+            <CollectionView ItemsSource="{Binding Groups}"
+                            SelectionMode="Single"
+                            SelectionChanged="OnGroupSelected"
+                            IsVisible="{Binding ShowGroups}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="12,10" ColumnDefinitions="*,Auto,Auto">
+                            <Label Text="{Binding DisplayName}"
+                                   FontSize="16"
+                                   VerticalOptions="Center" />
+                            <Label Grid.Column="1"
+                                   Text="{Binding Count}"
+                                   FontSize="13"
+                                   TextColor="Gray"
+                                   VerticalOptions="Center" />
+                            <Label Grid.Column="2"
+                                   Text=">"
+                                   FontSize="16"
+                                   TextColor="Gray"
+                                   VerticalOptions="Center"
+                                   Margin="8,0,0,0" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
         </Grid>
+
+        <!-- Player Bar - sits in its own row, no overlay -->
+        <local:PlayerSheet Grid.Row="4" BindingContext="{Binding Player}" />
     </Grid>
 
 </ContentPage>

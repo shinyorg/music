@@ -1,3 +1,4 @@
+using Shiny;
 using Shiny.Music;
 
 namespace MusicSample;
@@ -9,6 +10,7 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
+            .UseShinyShell(x => x.AddGeneratedMaps())
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -16,12 +18,7 @@ public static class MauiProgram
             });
 
         builder.Services.AddShinyMusic();
-        builder.Services.AddTransient<MainPage>();
-        builder.Services.AddTransient<GenresPage>();
-        builder.Services.AddTransient<DecadesPage>();
-        builder.Services.AddTransient<YearsPage>();
-        builder.Services.AddTransient<PlaylistsPage>();
-        builder.Services.AddTransient<TracksPage>();
+        builder.Services.AddSingleton<PlayerViewModel>();
 
         return builder.Build();
     }

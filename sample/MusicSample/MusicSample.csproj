@@ -21,6 +21,8 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.Maui.Controls"/>
         <PackageReference Include="Shiny.Maui.Controls" />
+        <PackageReference Include="Shiny.Maui.Shell" />
+        <PackageReference Include="CommunityToolkit.Mvvm" />
     </ItemGroup>
 
     <ItemGroup>

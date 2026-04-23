@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:MusicSample"
+             x:Class="MusicSample.LyricsPage"
+             Title="Lyrics"
+             BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1C1C1E}">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+        <!-- Close Button -->
+        <Button Grid.Row="0"
+                Text="Close"
+                FontSize="16"
+                BackgroundColor="Transparent"
+                TextColor="#512BD4"
+                HorizontalOptions="End"
+                Clicked="OnCloseClicked"
+                Padding="16,8" />
+
+        <!-- Track Info -->
+        <VerticalStackLayout Grid.Row="1" HorizontalOptions="Center" Spacing="2" Padding="16,0">
+            <Label Text="{Binding NowPlayingTitle}"
+                   FontSize="20"
+                   FontAttributes="Bold"
+                   HorizontalTextAlignment="Center" />
+            <Label Text="{Binding NowPlayingArtist}"
+                   FontSize="14"
+                   TextColor="Gray"
+                   HorizontalTextAlignment="Center" />
+        </VerticalStackLayout>
+
+        <!-- Lyrics -->
+        <CollectionView x:Name="LyricsCollection"
+                        Grid.Row="2"
+                        ItemsSource="{Binding LyricLines}"
+                        Margin="0,16,0,0">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Label Text="{Binding Text}"
+                           FontSize="{Binding LyricFontSize}"
+                           TextColor="{Binding LyricColor}"
+                           FontAttributes="{Binding LyricFontAttr}"
+                           Padding="24,6"
+                           HorizontalTextAlignment="Center" />
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Mini Controls -->
+        <HorizontalStackLayout Grid.Row="3"
+                               HorizontalOptions="Center"
+                               Spacing="24"
+                               Padding="0,8,0,24">
+            <Button Text="⏹"
+                    FontSize="24"
+                    WidthRequest="48"
+                    HeightRequest="48"
+                    CornerRadius="24"
+                    BackgroundColor="#E0E0E0"
+                    TextColor="#333333"
+                    Command="{Binding StopCommand}" />
+            <Button Text="{Binding PlayPauseIcon}"
+                    FontSize="28"
+                    WidthRequest="56"
+                    HeightRequest="56"
+                    CornerRadius="28"
+                    BackgroundColor="#512BD4"
+                    TextColor="White"
+                    Command="{Binding PlayPauseCommand}" />
+        </HorizontalStackLayout>
+    </Grid>
+
+</ContentPage>
