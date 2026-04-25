@@ -2,40 +2,22 @@ using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Shiny;
 using Shiny.Music;
 
 namespace MusicSample;
 
-public partial class PlayerViewModel : ObservableObject, IDisposable
+public partial class PlayerViewModel(
+    IMusicPlayer player, 
+    IMediaLibrary library, 
+    ILyricsProvider lyricsProvider
+) : ObservableObject, IPageLifecycleAware
 {
-    readonly IMusicPlayer player;
-    readonly IMediaLibrary library;
-    readonly ILyricsProvider lyricsProvider;
     IDispatcherTimer? positionTimer;
     IDispatcher? dispatcher;
     bool isUserDragging;
     int currentLyricIndex = -1;
 
-    public PlayerViewModel(IMusicPlayer player, IMediaLibrary library, ILyricsProvider lyricsProvider)
-    {
-        this.player = player;
-        this.library = library;
-        this.lyricsProvider = lyricsProvider;
-
-        this.player.StateChanged += (_, state) =>
-        {
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                PlayPauseIcon = state == PlaybackState.Playing ? "⏸" : "▶";
-                UpdatePositionTimer(state);
-            });
-        };
-
-        this.player.PlaybackCompleted += (_, _) =>
-        {
-            MainThread.BeginInvokeOnMainThread(ResetPlayerUI);
-        };
-    }
 
     // ── Observable Properties ───────────────────────────────────
 
@@ -55,13 +37,46 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
 
     public event EventHandler<int>? LyricHighlightChanged;
 
+    // ── Lifecycle ───────────────────────────────────────────────
+
+    public void OnAppearing()
+    {
+        player.StateChanged += OnStateChanged;
+        player.PlaybackCompleted += OnPlaybackCompleted;
+
+        // Sync UI to current player state
+        PlayPauseIcon = player.State == PlaybackState.Playing ? "⏸" : "▶";
+        UpdatePositionTimer(player.State);
+    }
+
+    public void OnDisappearing()
+    {
+        player.StateChanged -= OnStateChanged;
+        player.PlaybackCompleted -= OnPlaybackCompleted;
+        StopPositionTimer();
+    }
+
+    void OnStateChanged(object? sender, PlaybackState state)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            PlayPauseIcon = state == PlaybackState.Playing ? "⏸" : "▶";
+            UpdatePositionTimer(state);
+        });
+    }
+
+    void OnPlaybackCompleted(object? sender, EventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(ResetPlayerUI);
+    }
+
     // ── Public Methods ──────────────────────────────────────────
 
     public void SetDispatcher(IDispatcher disp) => this.dispatcher = disp;
 
     public async Task PlayTrack(MusicMetadata track)
     {
-        await this.player.PlayAsync(track);
+        await player.PlayAsync(track);
         NowPlayingTitle = track.Title ?? "Unknown";
         NowPlayingArtist = track.Artist ?? "Unknown";
         NowPlayingAlbum = track.Album ?? "";
@@ -74,13 +89,13 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
     [RelayCommand]
     void PlayPause()
     {
-        switch (this.player.State)
+        switch (player.State)
         {
             case PlaybackState.Playing:
-                this.player.Pause();
+                player.Pause();
                 break;
             case PlaybackState.Paused:
-                this.player.Resume();
+                player.Resume();
                 break;
         }
     }
@@ -88,14 +103,14 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
     [RelayCommand]
     void Stop()
     {
-        this.player.Stop();
+        player.Stop();
         ResetPlayerUI();
     }
 
     public void ApplyVolume(double value)
     {
         Volume = value;
-        this.player.Volume = (float)value;
+        player.Volume = (float)value;
     }
 
     // ── Seek ────────────────────────────────────────────────────
@@ -105,15 +120,15 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
     public void SeekDragCompleted(double value)
     {
         this.isUserDragging = false;
-        var duration = this.player.Duration;
+        var duration = player.Duration;
         if (duration.TotalSeconds > 0)
-            this.player.Seek(TimeSpan.FromSeconds(value * duration.TotalSeconds));
+            player.Seek(TimeSpan.FromSeconds(value * duration.TotalSeconds));
     }
 
     public void SeekSliderChanged(double value)
     {
         if (!this.isUserDragging) return;
-        var duration = this.player.Duration;
+        var duration = player.Duration;
         if (duration.TotalSeconds > 0)
             PositionText = FormatTime(TimeSpan.FromSeconds(value * duration.TotalSeconds));
     }
@@ -124,7 +139,7 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var path = await this.library.GetAlbumArtPathAsync(trackId);
+            var path = await library.GetAlbumArtPathAsync(trackId);
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 AlbumArtSource = path != null ? ImageSource.FromFile(path) : null;
@@ -143,7 +158,7 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
 
         try
         {
-            var result = await this.lyricsProvider.GetLyricsAsync(track);
+            var result = await lyricsProvider.GetLyricsAsync(track);
             if (result == null) return;
 
             if (!string.IsNullOrWhiteSpace(result.SyncedLyrics))
@@ -159,6 +174,12 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
             HasLyrics = LyricLines.Count > 0;
         }
         catch { }
+    }
+
+    public void ResyncLyricHighlight()
+    {
+        this.currentLyricIndex = -1;
+        UpdateLyricHighlight(player.Position);
     }
 
     void UpdateLyricHighlight(TimeSpan position)
@@ -245,8 +266,8 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
     {
         if (this.isUserDragging) return;
 
-        var position = this.player.Position;
-        var duration = this.player.Duration;
+        var position = player.Position;
+        var duration = player.Duration;
 
         PositionText = FormatTime(position);
         DurationText = FormatTime(duration);
@@ -272,8 +293,6 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
         time.TotalHours >= 1
             ? time.ToString(@"h\:mm\:ss")
             : time.ToString(@"m\:ss");
-
-    public void Dispose() => StopPositionTimer();
 }
 
 // ── Lyric Line VM ───────────────────────────────────────────

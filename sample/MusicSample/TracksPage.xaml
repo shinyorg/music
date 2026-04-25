@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<fp:ShinyContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:fp="clr-namespace:Shiny.Maui.Controls.FloatingPanel;assembly=Shiny.Maui.Controls"
              xmlns:local="clr-namespace:MusicSample"
              x:Class="MusicSample.TracksPage"
              Title="{Binding Title}">
 
-    <Grid>
-        <Grid RowDefinitions="*" Padding="16,8,16,0">
+    <fp:ShinyContentPage.Panels>
+        <local:PlayerSheet BindingContext="{Binding Player}" />
+    </fp:ShinyContentPage.Panels>
+
+    <fp:ShinyContentPage.PageContent>
+        <Grid Padding="16,8,16,0">
             <CollectionView ItemsSource="{Binding Tracks}"
                             SelectionMode="Single"
                             SelectionChanged="OnTrackSelected">
@@ -53,9 +58,6 @@
                 </CollectionView.EmptyView>
             </CollectionView>
         </Grid>
+    </fp:ShinyContentPage.PageContent>
 
-        <!-- Player Sheet -->
-        <local:PlayerSheet BindingContext="{Binding Player}" />
-    </Grid>
-
-</ContentPage>
+</fp:ShinyContentPage>

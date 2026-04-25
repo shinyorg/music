@@ -1,25 +1,25 @@
 using Microsoft.Maui.Controls.Shapes;
 using Shiny.Maui.Controls;
+using Shiny.Maui.Controls.FloatingPanel;
 
 namespace MusicSample;
 
-public partial class PlayerSheet : ContentView
+public partial class PlayerSheet : FloatingPanel
 {
     public PlayerSheet()
     {
         InitializeComponent();
 
-        Sheet.Detents.Clear();
-        Sheet.Detents.Add(new DetentValue(0.50));
-        Sheet.Detents.Add(new DetentValue(1.0));
+        Detents.Clear();
+        Detents.Add(new DetentValue(0.50));
+        Detents.Add(new DetentValue(1.0));
 
-        Sheet.HeaderTemplate = BuildMiniPlayer();
+        HeaderTemplate = BuildMiniPlayer();
     }
 
     protected override void OnBindingContextChanged()
     {
         base.OnBindingContextChanged();
-        Sheet.BindingContext = BindingContext;
     }
 
     View BuildMiniPlayer()
@@ -47,6 +47,7 @@ public partial class PlayerSheet : ContentView
         {
             FontSize = 14,
             FontAttributes = FontAttributes.Bold,
+            TextColor = Colors.White,
             LineBreakMode = LineBreakMode.TailTruncation
         };
         titleLabel.SetBinding(Label.TextProperty, nameof(PlayerViewModel.NowPlayingTitle));
@@ -54,10 +55,9 @@ public partial class PlayerSheet : ContentView
         var artistLabel = new Label
         {
             FontSize = 12,
+            TextColor = Color.FromArgb("#ACACAC"),
             LineBreakMode = LineBreakMode.TailTruncation
         };
-        artistLabel.SetAppThemeColor(Label.TextColorProperty,
-            Color.FromArgb("#919191"), Color.FromArgb("#ACACAC"));
         artistLabel.SetBinding(Label.TextProperty, nameof(PlayerViewModel.NowPlayingArtist));
 
         var infoStack = new VerticalStackLayout
@@ -77,8 +77,7 @@ public partial class PlayerSheet : ContentView
             BackgroundColor = Colors.Transparent
         };
         playBtn.SetBinding(Button.TextProperty, nameof(PlayerViewModel.PlayPauseIcon));
-        playBtn.SetAppThemeColor(Button.TextColorProperty,
-            Color.FromArgb("#6C5CE7"), Color.FromArgb("#A29BFE"));
+        playBtn.TextColor = Color.FromArgb("#A29BFE");
         playBtn.Clicked += (_, _) =>
         {
             if (BindingContext is PlayerViewModel vm)
@@ -98,7 +97,7 @@ public partial class PlayerSheet : ContentView
             HeightRequest = 62
         };
         grid.SetAppThemeColor(Grid.BackgroundColorProperty,
-            Color.FromArgb("#FFFFFF"), Color.FromArgb("#2A2A3E"));
+            Color.FromArgb("#1E1E2E"), Color.FromArgb("#1A1A2C"));
 
         var tapGesture = new TapGestureRecognizer();
         tapGesture.Tapped += (_, _) =>

@@ -26,6 +26,7 @@ public partial class MainViewModel(
     public async void OnAppearing()
     {
         player.SetDispatcher(Application.Current!.Dispatcher);
+        player.OnAppearing();
 
         var status = await library.CheckPermissionAsync();
         if (status == PermissionStatus.Granted)
@@ -35,7 +36,10 @@ public partial class MainViewModel(
         }
     }
 
-    public void OnDisappearing() { }
+    public void OnDisappearing()
+    {
+        player.OnDisappearing();
+    }
 
     [RelayCommand]
     async Task RequestPermission()

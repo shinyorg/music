@@ -3,6 +3,7 @@ namespace MusicSample;
 public partial class LyricsPage : ContentPage
 {
     readonly PlayerViewModel vm;
+    bool isInitialSync;
 
     public LyricsPage(PlayerViewModel playerViewModel)
     {
@@ -11,11 +12,16 @@ public partial class LyricsPage : ContentPage
         BindingContext = playerViewModel;
     }
 
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
         this.vm.LyricHighlightChanged += OnLyricHighlightChanged;
-        ScrollToActiveLyric();
+
+        // Defer so the CollectionView is laid out before we scroll
+        this.isInitialSync = true;
+        await Task.Delay(100);
+        this.vm.ResyncLyricHighlight();
+        this.isInitialSync = false;
     }
 
     protected override void OnDisappearing()
@@ -27,19 +33,7 @@ public partial class LyricsPage : ContentPage
     void OnLyricHighlightChanged(object? sender, int index)
     {
         if (index >= 0 && index < this.vm.LyricLines.Count)
-            LyricsCollection.ScrollTo(index, position: ScrollToPosition.Center, animate: true);
-    }
-
-    void ScrollToActiveLyric()
-    {
-        for (var i = 0; i < this.vm.LyricLines.Count; i++)
-        {
-            if (this.vm.LyricLines[i].LyricColor == Color.FromArgb("#512BD4"))
-            {
-                LyricsCollection.ScrollTo(i, position: ScrollToPosition.Center, animate: false);
-                break;
-            }
-        }
+            LyricsCollection.ScrollTo(index, position: ScrollToPosition.Center, animate: !this.isInitialSync);
     }
 
     async void OnCloseClicked(object? sender, EventArgs e)

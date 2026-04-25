@@ -1,8 +1,9 @@
+using Shiny.Maui.Controls.FloatingPanel;
 using Shiny.Music;
 
 namespace MusicSample;
 
-public partial class MainPage : ContentPage
+public partial class MainPage : ShinyContentPage
 {
     public MainPage()
     {

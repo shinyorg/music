@@ -12,7 +12,7 @@ public partial class TracksViewModel(
     IDialogs dialogs,
     IMediaLibrary library,
     PlayerViewModel player
-) : ObservableObject, IQueryAttributable
+) : ObservableObject, IQueryAttributable, IPageLifecycleAware
 {
     [ShellProperty] public string Title { get; set; } = "Tracks";
     [ShellProperty] public string TracksJson { get; set; } = "";
@@ -44,6 +44,17 @@ public partial class TracksViewModel(
         }
 
         OnPropertyChanged(nameof(Title));
+    }
+
+    public void OnAppearing()
+    {
+        player.SetDispatcher(Application.Current!.Dispatcher);
+        player.OnAppearing();
+    }
+
+    public void OnDisappearing()
+    {
+        player.OnDisappearing();
     }
 
     [RelayCommand]
