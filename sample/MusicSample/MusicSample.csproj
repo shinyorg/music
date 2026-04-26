@@ -23,6 +23,7 @@
         <PackageReference Include="Shiny.Maui.Controls" />
         <PackageReference Include="Shiny.Maui.Shell" />
         <PackageReference Include="CommunityToolkit.Mvvm" />
+        <PackageReference Include="Redth.MauiDevFlow.Agent" />
     </ItemGroup>
 
     <ItemGroup>

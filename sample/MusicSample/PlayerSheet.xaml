@@ -10,6 +10,7 @@
                      PanelCornerRadius="24"
                      PanelBackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
                      HandleColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                     HeaderBackgroundColor="{AppThemeBinding Light=#1E1E2E, Dark=#1A1A2C}"
                      Position="Bottom">
 
     <fp:FloatingPanel.PanelContent>

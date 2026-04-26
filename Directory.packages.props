@@ -7,8 +7,9 @@
     <PackageVersion Include="Microsoft.Maui.Essentials" Version="$(MauiVersion)" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
     <PackageVersion Include="Nerdbank.GitVersioning" Version="3.9.50" />
-    <PackageVersion Include="Shiny.Maui.Controls" Version="1.0.1-beta-0040" />
+    <PackageVersion Include="Shiny.Maui.Controls" Version="1.0.1-beta-0041" />
     <PackageVersion Include="Shiny.Maui.Shell" Version="5.0.0" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="Redth.MauiDevFlow.Agent" Version="0.23.1" />
   </ItemGroup>
 </Project>
