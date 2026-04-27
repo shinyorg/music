@@ -24,13 +24,15 @@
             <Border.StrokeShape>
                 <RoundRectangle CornerRadius="0,0,16,16" />
             </Border.StrokeShape>
-            <VerticalStackLayout Spacing="2">
-                <Label Text="Shiny Music"
-                       FontSize="22"
-                       FontAttributes="Bold"
-                       TextColor="White"
-                       HorizontalOptions="Center" />
-                <HorizontalStackLayout HorizontalOptions="Center" Spacing="4">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="0">
+                <BoxView Grid.Column="0" WidthRequest="40" Color="Transparent" />
+                <VerticalStackLayout Grid.Column="1" Spacing="2" HorizontalOptions="Center">
+                    <Label Text="Shiny Music"
+                           FontSize="22"
+                           FontAttributes="Bold"
+                           TextColor="White"
+                           HorizontalOptions="Center" />
+                    <HorizontalStackLayout HorizontalOptions="Center" Spacing="4">
                     <Label Text="{Binding SelectedCategory}"
                            FontSize="14"
                            TextColor="#A29BFE"
@@ -43,7 +45,19 @@
                         <TapGestureRecognizer Command="{Binding ShowCategoryPickerCommand}" />
                     </HorizontalStackLayout.GestureRecognizers>
                 </HorizontalStackLayout>
-            </VerticalStackLayout>
+                </VerticalStackLayout>
+                <Label Grid.Column="2"
+                       Text="🎵"
+                       FontSize="22"
+                       TextColor="#A29BFE"
+                       VerticalOptions="Center"
+                       HorizontalOptions="End"
+                       Padding="0,0,4,0">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnIdentifyTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
+            </Grid>
         </Border>
 
         <!-- Permission Banner -->

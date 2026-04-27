@@ -14,6 +14,7 @@ A .NET library for accessing the device music library on **Android** and **iOS**
 - Playing music files from the device library
 - Controlling playback volume
 - Streaming Apple Music subscription tracks via `MPMusicPlayerController` (iOS)
+- Identifying songs by listening to audio (iOS via ShazamKit)
 - Fetching lyrics (plain text and synced LRC format)
 - Retrieving album artwork
 - Copying music files (where permitted)
@@ -89,6 +90,12 @@ public class MyPage
         // 13. Copy a track
         var dest = Path.Combine(FileSystem.AppDataDirectory, "copy.m4a");
         var success = await _library.CopyTrackAsync(tracks[0], dest);
+
+        // 14. Identify a song (iOS only)
+        var identifier = /* resolve IMusicIdentifier from DI */;
+        var identified = await identifier.ListenAsync();
+        if (identified != null)
+            Console.WriteLine($"Identified: {identified.Title} by {identified.Artist}");
     }
 }
 ```
@@ -133,6 +140,13 @@ Add these to your `AndroidManifest.xml`:
 ```
 
 > **This is mandatory.** Your app will crash on launch if you attempt to access the music library without this key.
+
+For song identification via `IMusicIdentifier`, also add:
+
+```xml
+<key>NSMicrophoneUsageDescription</key>
+<string>Used to identify songs playing nearby.</string>
+```
 
 #### Notes
 
@@ -189,6 +203,24 @@ No special entitlements are required beyond the Info.plist usage description. Th
 | `Volume` | Playback volume from 0.0 to 1.0 (default 1.0) |
 | `StateChanged` | Event fired when playback state changes |
 | `PlaybackCompleted` | Event fired when a track finishes |
+
+### `IMusicIdentifier`
+
+| Member | Description |
+|---|---|
+| `ListenAsync(cancellationToken)` | Listens via microphone and returns a `MusicIdentificationResult`, or `null` if no match. iOS only (ShazamKit). |
+
+### `MusicIdentificationResult`
+
+| Property | Type | Description |
+|---|---|---|
+| `Title` | `string` | The title of the identified track |
+| `Artist` | `string?` | Artist name |
+| `Album` | `string?` | Album name |
+| `Genre` | `string?` | Genre |
+| `ArtworkUrl` | `string?` | URL to album/track artwork |
+| `MusicUrl` | `string?` | URL to the track on a music streaming service |
+| `Isrc` | `string?` | International Standard Recording Code |
 
 ### `ILyricsProvider`
 

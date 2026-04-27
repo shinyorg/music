@@ -34,4 +34,9 @@ public partial class MainPage : ShinyContentPage
             await vm.SelectGroupCommand.ExecuteAsync(item);
         }
     }
+
+    async void OnIdentifyTapped(object? sender, TappedEventArgs e)
+    {
+        await Shell.Current.GoToAsync("Identify");
+    }
 }

@@ -22,6 +22,9 @@ public static class MusicServiceCollectionExtensions
         services.TryAddSingleton<IMusicPlayer, MusicPlayer>();
         services.TryAddSingleton<ILyricsProvider>(sp => new LrcLibLyricsProvider(new HttpClient()));
 #endif
+#if IOS
+        services.TryAddSingleton<IMusicIdentifier, MusicIdentifier>();
+#endif
         return services;
     }
 }
