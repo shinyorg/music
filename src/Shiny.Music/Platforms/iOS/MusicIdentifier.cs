@@ -22,13 +22,10 @@ public class MusicIdentifier : IMusicIdentifier
         using var reg = cancellationToken.Register(() =>
         {
             this.Cleanup();
-            // MainThread.BeginInvokeOnMainThread(Cleanup);
             tcs.TrySetCanceled(cancellationToken);
         });
 
-        // await MainThread.InvokeOnMainThreadAsync(() =>
-        // {
-            var audioSession = AVAudioSession.SharedInstance();
+        var audioSession = AVAudioSession.SharedInstance();
             audioSession.SetCategory(AVAudioSessionCategory.Record);
             audioSession.SetActive(true);
 
@@ -54,17 +51,13 @@ public class MusicIdentifier : IMusicIdentifier
                 return null;
             }
 
-            // Collect audio then match
-            Task.Delay(TimeSpan.FromSeconds(5), cancellationToken).ContinueWith(_ =>
-            {
-                // MainThread.BeginInvokeOnMainThread(() =>
-                // {
-                    StopAudioEngine();
-                    var signature = signatureGenerator.Signature;
-                    shSession.Match(signature);
-                // });
-            }, TaskContinuationOptions.OnlyOnRanToCompletion);
-        // });
+        // Collect audio then match
+        Task.Delay(TimeSpan.FromSeconds(5), cancellationToken).ContinueWith(_ =>
+        {
+            StopAudioEngine();
+            var signature = signatureGenerator.Signature;
+            shSession.Match(signature);
+        }, TaskContinuationOptions.OnlyOnRanToCompletion);
 
         try
         {
@@ -73,7 +66,6 @@ public class MusicIdentifier : IMusicIdentifier
         finally
         {
             this.Cleanup();
-            // MainThread.BeginInvokeOnMainThread(Cleanup);
         }
     }
 

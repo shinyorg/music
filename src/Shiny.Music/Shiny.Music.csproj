@@ -23,10 +23,10 @@
 
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
         <Compile Include="Platforms\Android\**\*.cs"/>
+        <PackageReference Include="Xamarin.AndroidX.Core" />
     </ItemGroup>
 
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
         <Compile Include="Platforms\iOS\**\*.cs"/>
     </ItemGroup>
-
 </Project>

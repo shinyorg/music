@@ -3,7 +3,7 @@ using Uri = Android.Net.Uri;
 
 namespace Shiny.Music;
 
-public class MusicPlayer : IMusicPlayer
+public class MusicPlayer(ActivityProvider activityProvider) : IMusicPlayer
 {
     Android.Media.MediaPlayer? player;
     MusicMetadata? currentTrack;
@@ -36,8 +36,7 @@ public class MusicPlayer : IMusicPlayer
     {
         this.Stop();
 
-        var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity
-            ?? throw new InvalidOperationException("No current activity available");
+        var activity = activityProvider.Current;
 
         this.player = new Android.Media.MediaPlayer();
         this.player.SetAudioAttributes(

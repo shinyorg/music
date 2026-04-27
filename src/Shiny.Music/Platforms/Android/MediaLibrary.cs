@@ -1,21 +1,17 @@
-using Android;
-using Android.App;
 using Android.Content;
 using Android.Content.PM;
 using Android.Database;
 using Android.Provider;
-using AndroidX.Core.App;
 using AndroidX.Core.Content;
-using Microsoft.Maui.ApplicationModel;
 using Activity = Android.App.Activity;
 using Uri = Android.Net.Uri;
 
 namespace Shiny.Music;
 
-public class MediaLibrary : IMediaLibrary
+public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
 {
-    static readonly string[] AudioProjection = new[]
-    {
+    static readonly string[] AudioProjection = 
+    [
         MediaStore.Audio.Media.InterfaceConsts.Id,
         MediaStore.Audio.Media.InterfaceConsts.Title,
         MediaStore.Audio.Media.InterfaceConsts.Artist,
@@ -24,14 +20,9 @@ public class MediaLibrary : IMediaLibrary
         MediaStore.Audio.Media.InterfaceConsts.AlbumId,
         MediaStore.Audio.Media.InterfaceConsts.Data,
         MediaStore.Audio.Media.InterfaceConsts.Year
-    };
+    ];
 
-    Activity GetActivity()
-    {
-        var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity
-            ?? throw new InvalidOperationException("No current activity available");
-        return activity;
-    }
+    Activity GetActivity() => activityProvider.Current;
 
     public Task<PermissionStatus> CheckPermissionAsync()
     {
@@ -45,33 +36,17 @@ public class MediaLibrary : IMediaLibrary
 
     public Task<PermissionStatus> RequestPermissionAsync()
     {
-        var tcs = new TaskCompletionSource<PermissionStatus>();
         var activity = GetActivity();
         string permission = GetRequiredPermission();
 
         if (ContextCompat.CheckSelfPermission(activity, permission) == Permission.Granted)
-        {
-            tcs.SetResult(PermissionStatus.Granted);
-            return tcs.Task;
-        }
+            return Task.FromResult(PermissionStatus.Granted);
 
-        // Use MAUI Permissions API for cleaner request flow
-        MainThread.BeginInvokeOnMainThread(async () =>
-        {
-            try
-            {
-                var status = await Permissions.RequestAsync<Permissions.StorageRead>();
-                tcs.SetResult(status == Microsoft.Maui.ApplicationModel.PermissionStatus.Granted
-                    ? PermissionStatus.Granted
-                    : PermissionStatus.Denied);
-            }
-            catch (Exception ex)
-            {
-                tcs.SetException(ex);
-            }
-        });
+        if (activity is not AndroidX.Fragment.App.FragmentActivity fragmentActivity)
+            throw new InvalidOperationException("Current activity must be a FragmentActivity to request permissions");
 
-        return tcs.Task;
+        var fragment = new PermissionRequestFragment();
+        return fragment.RequestAsync(fragmentActivity, permission);
     }
 
     public Task<IReadOnlyList<MusicMetadata>> GetAllTracksAsync()

@@ -17,6 +17,9 @@ public static class MusicServiceCollectionExtensions
     /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddShinyMusic(this IServiceCollection services)
     {
+#if ANDROID
+        services.TryAddSingleton<ActivityProvider>();
+#endif
 #if ANDROID || IOS
         services.TryAddSingleton<IMediaLibrary, MediaLibrary>();
         services.TryAddSingleton<IMusicPlayer, MusicPlayer>();

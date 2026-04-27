@@ -13,5 +13,6 @@
     <PackageVersion Include="Shiny.Maui.Shell" Version="5.0.0" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="Redth.MauiDevFlow.Agent" Version="0.23.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Core" Version="1.18.0" />
   </ItemGroup>
 </Project>
