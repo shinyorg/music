@@ -8,9 +8,10 @@ using Shiny.Music;
 namespace MusicSample;
 
 public partial class PlayerViewModel(
-    IMusicPlayer player, 
-    IMediaLibrary library, 
-    ILyricsProvider lyricsProvider
+    IMusicPlayer player,
+    IMediaLibrary library,
+    ILyricsProvider lyricsProvider,
+    IMusicManager musicManager
 ) : ObservableObject, IPageLifecycleAware
 {
     IDispatcherTimer? positionTimer;
@@ -32,6 +33,7 @@ public partial class PlayerViewModel(
     [ObservableProperty] double sliderValue;
     [ObservableProperty] double volume = 1.0;
     [ObservableProperty] bool hasLyrics;
+    [ObservableProperty] int playCount;
 
     public ObservableCollection<LyricLineVM> LyricLines { get; } = [];
 
@@ -82,6 +84,9 @@ public partial class PlayerViewModel(
         NowPlayingAlbum = track.Album ?? "";
         _ = LoadAlbumArt(track.Id);
         _ = LoadLyrics(track);
+
+        await musicManager.AddPlayCount(track.Id);
+        PlayCount = await musicManager.GetPlayCount(track.Id);
     }
 
     // ── Commands ────────────────────────────────────────────────

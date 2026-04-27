@@ -19,6 +19,7 @@ A .NET library for accessing the device music library on **Android** and **iOS**
 - Retrieving album artwork
 - Copying music files (where permitted)
 - Checking for active streaming subscriptions
+- Managing custom playlists and play counts via `IMusicManager` (backed by SQLite)
 
 ## Installation
 
@@ -29,6 +30,7 @@ Add a project reference to `Shiny.Music` from your .NET MAUI or platform-specifi
 ```csharp
 // Register in MauiProgram.cs
 builder.Services.AddShinyMusic();
+builder.Services.AddMusicManagementSqlite(); // Optional: custom playlists & play counts
 
 // Use via dependency injection
 public class MyPage
@@ -36,12 +38,14 @@ public class MyPage
     readonly IMediaLibrary _library;
     readonly IMusicPlayer _player;
     readonly ILyricsProvider _lyrics;
+    readonly IMusicManager _manager;
 
-    public MyPage(IMediaLibrary library, IMusicPlayer player, ILyricsProvider lyrics)
+    public MyPage(IMediaLibrary library, IMusicPlayer player, ILyricsProvider lyrics, IMusicManager manager)
     {
         _library = library;
         _player = player;
         _lyrics = lyrics;
+        _manager = manager;
     }
 
     async Task Example()
@@ -96,6 +100,18 @@ public class MyPage
         var identified = await identifier.ListenAsync();
         if (identified != null)
             Console.WriteLine($"Identified: {identified.Title} by {identified.Artist}");
+
+        // 15. Track play counts
+        await _manager.AddPlayCount(tracks[0].Id);
+        var count = await _manager.GetPlayCount(tracks[0].Id);
+
+        // 16. Custom playlists
+        await _manager.CreatePlaylist("my-id", "Favorites");
+        await _manager.AddTrackToPlaylist("my-id", tracks[0]);
+        var customTracks = await _manager.GetPlaylistTracks("my-id");
+
+        // 17. Browse all custom playlists
+        var customPlaylists = await _manager.GetAllPlaylists();
     }
 }
 ```
@@ -269,6 +285,28 @@ All properties are optional and combined with AND logic. Pass to `GetTracksAsync
 | `Id` | `string` | Platform-specific unique identifier for the playlist |
 | `Name` | `string` | The display name of the playlist |
 | `SongCount` | `int` | The number of tracks in the playlist |
+
+### `IMusicManager`
+
+Custom playlist management and play count tracking, backed by SQLite via `Shiny.DocumentDb`. Registered with `AddMusicManagementSqlite()`.
+
+| Method | Description |
+|---|---|
+| `AddPlayCount(trackId)` | Increments the play count for the specified track by one |
+| `GetPlayCount(trackId)` | Gets the current play count, or 0 if never played |
+| `GetAllPlayCounts()` | Returns all recorded play counts |
+| `GetAllPlaylists()` | Returns all custom playlists with their track counts |
+| `CreatePlaylist(playlistId, name)` | Creates a new playlist or updates the name of an existing one |
+| `RemovePlaylist(playlistId)` | Removes a playlist and all of its associated tracks |
+| `AddTrackToPlaylist(playlistId, metadata)` | Adds a track to a playlist (no-op if already present) |
+| `GetPlaylistTracks(playlistId)` | Gets all tracks belonging to the specified playlist |
+
+### `PlayCount`
+
+| Property | Type | Description |
+|---|---|---|
+| `TrackId` | `string` | The platform-specific unique identifier for the track |
+| `Count` | `int` | The total number of times the track has been played |
 
 ### `GroupedCount<T>`
 

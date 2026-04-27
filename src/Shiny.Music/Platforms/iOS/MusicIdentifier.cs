@@ -1,6 +1,4 @@
 using AVFoundation;
-using Foundation;
-using Microsoft.Maui.ApplicationModel;
 using ShazamKit;
 
 namespace Shiny.Music;
@@ -23,12 +21,13 @@ public class MusicIdentifier : IMusicIdentifier
 
         using var reg = cancellationToken.Register(() =>
         {
-            MainThread.BeginInvokeOnMainThread(Cleanup);
+            this.Cleanup();
+            // MainThread.BeginInvokeOnMainThread(Cleanup);
             tcs.TrySetCanceled(cancellationToken);
         });
 
-        await MainThread.InvokeOnMainThreadAsync(() =>
-        {
+        // await MainThread.InvokeOnMainThreadAsync(() =>
+        // {
             var audioSession = AVAudioSession.SharedInstance();
             audioSession.SetCategory(AVAudioSessionCategory.Record);
             audioSession.SetActive(true);
@@ -52,20 +51,20 @@ public class MusicIdentifier : IMusicIdentifier
             if (engineError != null)
             {
                 tcs.TrySetException(new Exception($"Failed to start audio engine: {engineError.LocalizedDescription}"));
-                return;
+                return null;
             }
 
             // Collect audio then match
             Task.Delay(TimeSpan.FromSeconds(5), cancellationToken).ContinueWith(_ =>
             {
-                MainThread.BeginInvokeOnMainThread(() =>
-                {
+                // MainThread.BeginInvokeOnMainThread(() =>
+                // {
                     StopAudioEngine();
                     var signature = signatureGenerator.Signature;
                     shSession.Match(signature);
-                });
+                // });
             }, TaskContinuationOptions.OnlyOnRanToCompletion);
-        });
+        // });
 
         try
         {
@@ -73,7 +72,8 @@ public class MusicIdentifier : IMusicIdentifier
         }
         finally
         {
-            MainThread.BeginInvokeOnMainThread(Cleanup);
+            this.Cleanup();
+            // MainThread.BeginInvokeOnMainThread(Cleanup);
         }
     }
 

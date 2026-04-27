@@ -49,6 +49,17 @@
                            FontSize="13"
                            TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
                            HorizontalTextAlignment="Center" />
+                    <Label FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
+                           HorizontalTextAlignment="Center"
+                           Margin="0,4,0,0">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="Plays: " />
+                                <Span Text="{Binding PlayCount}" FontAttributes="Bold" />
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
                 </VerticalStackLayout>
 
                 <!-- Seek Bar -->

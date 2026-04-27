@@ -37,5 +37,6 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Shiny.Music\Shiny.Music.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Music.Sqlite\Shiny.Music.Sqlite.csproj"/>
     </ItemGroup>
 </Project>

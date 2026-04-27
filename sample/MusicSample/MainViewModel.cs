@@ -10,6 +10,7 @@ namespace MusicSample;
 [ShellMap<MainPage>(registerRoute: false)]
 public partial class MainViewModel(
     IMediaLibrary library,
+    IMusicManager musicManager,
     INavigator navigator,
     IDialogs dialogs,
     PlayerViewModel player
@@ -20,6 +21,11 @@ public partial class MainViewModel(
     [ObservableProperty] string selectedCategory = "Library";
     [ObservableProperty] ObservableCollection<GroupItem> groups = [];
     [ObservableProperty] bool showGroups;
+    [ObservableProperty] bool isPlaylistPickerOpen;
+    [ObservableProperty] string newPlaylistName = "";
+    [ObservableProperty] ObservableCollection<PlaylistPickerItem> customPlaylists = [];
+
+    MusicMetadata? pendingPlaylistTrack;
 
     public PlayerViewModel Player => player;
 
@@ -63,7 +69,7 @@ public partial class MainViewModel(
             "Select Category",
             "Cancel",
             null,
-            "Library", "Playlists", "Genres", "Decades", "Years"
+            "Library", "Playlists", "Custom Playlists", "Genres", "Decades", "Years"
         );
         if (result != "Cancel")
             await SelectCategory(result);
@@ -111,6 +117,9 @@ public partial class MainViewModel(
             case "Playlists":
                 tracks = await library.GetPlaylistTracksAsync(item.Id);
                 break;
+            case "Custom Playlists":
+                tracks = await musicManager.GetPlaylistTracks(item.Id);
+                break;
             case "Genres":
                 tracks = await library.GetTracksAsync(new MusicFilter { Genre = item.Id });
                 break;
@@ -142,6 +151,41 @@ public partial class MainViewModel(
         {
             await dialogs.Alert("Playback Error", ex.Message);
         }
+    }
+
+    // ── Playlist Picker ──────────────────────────────────────────
+
+    [RelayCommand]
+    async Task OpenPlaylistPicker(TrackItem? item)
+    {
+        if (item == null) return;
+        pendingPlaylistTrack = item.Track;
+        NewPlaylistName = "";
+        await LoadCustomPlaylists();
+        IsPlaylistPickerOpen = true;
+    }
+
+    [RelayCommand]
+    async Task CreateAndAddToPlaylist()
+    {
+        var name = NewPlaylistName?.Trim();
+        if (string.IsNullOrEmpty(name) || pendingPlaylistTrack == null) return;
+
+        var id = Guid.NewGuid().ToString();
+        await musicManager.CreatePlaylist(id, name);
+        await musicManager.AddTrackToPlaylist(id, pendingPlaylistTrack);
+        IsPlaylistPickerOpen = false;
+
+        if (SelectedCategory == "Custom Playlists")
+            await LoadCategory();
+    }
+
+    [RelayCommand]
+    async Task AddToExistingPlaylist(PlaylistPickerItem? playlist)
+    {
+        if (playlist == null || pendingPlaylistTrack == null) return;
+        await musicManager.AddTrackToPlaylist(playlist.Id, pendingPlaylistTrack);
+        IsPlaylistPickerOpen = false;
     }
 
     // ── Private ─────────────────────────────────────────────────
@@ -178,6 +222,13 @@ public partial class MainViewModel(
                 var playlists = await library.GetPlaylistsAsync();
                 Groups = new ObservableCollection<GroupItem>(
                     playlists.Select(p => new GroupItem(p.Id, p.Name, p.SongCount)));
+                ShowGroups = true;
+                break;
+
+            case "Custom Playlists":
+                var custom = await musicManager.GetAllPlaylists();
+                Groups = new ObservableCollection<GroupItem>(
+                    custom.Select(cp => new GroupItem(cp.Id, cp.Name, cp.SongCount)));
                 ShowGroups = true;
                 break;
 
@@ -219,6 +270,13 @@ public partial class MainViewModel(
             _ = item.LoadAlbumArt(library);
     }
 
+    async Task LoadCustomPlaylists()
+    {
+        var playlists = await musicManager.GetAllPlaylists();
+        CustomPlaylists = new ObservableCollection<PlaylistPickerItem>(
+            playlists.Select(p => new PlaylistPickerItem(p.Id, p.Name)));
+    }
+
     // Simple serialization to pass track data to TracksPage
     static string SerializeTracks(IReadOnlyList<MusicMetadata> tracks)
     {
@@ -231,3 +289,4 @@ public partial class MainViewModel(
 }
 
 public record GroupItem(string Id, string DisplayName, int Count);
+public record PlaylistPickerItem(string Id, string Name);
