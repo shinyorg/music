@@ -18,7 +18,16 @@ public partial class TracksViewModel(
     [ShellProperty] public string TracksJson { get; set; } = "";
 
     public PlayerViewModel Player => player;
-    [ObservableProperty] ObservableCollection<TrackItem> tracks = [];
+
+    public List<TrackItem> Tracks
+    {
+        get;
+        private set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
@@ -32,13 +41,11 @@ public partial class TracksViewModel(
 
             if (dtos != null)
             {
-                var items = dtos.Select(d => new TrackItem(new MusicMetadata(
+                Tracks = dtos.Select(d => new TrackItem(new MusicMetadata(
                     d.Id, d.Title, d.Artist, d.Album, d.Genre,
                     d.Duration, d.AlbumArtUri, d.IsExplicit, d.ContentUri, d.StoreId, d.Year))).ToList();
 
-                Tracks = new ObservableCollection<TrackItem>(items);
-
-                foreach (var item in items)
+                foreach (var item in Tracks)
                     _ = item.LoadAlbumArt(library);
             }
         }
