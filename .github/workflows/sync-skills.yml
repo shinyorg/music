@@ -33,9 +33,9 @@ jobs:
       - name: Sync skills directory
         run: |
           if [ -d "source/skills/shiny-music" ]; then
-            rm -rf skills-repo/skills/shiny-music
-            mkdir -p skills-repo/skills
-            cp -r source/skills/shiny-music skills-repo/skills/
+            rm -rf skills-repo/plugins/shiny-client/skills/shiny-music
+            mkdir -p skills-repo/plugins/shiny-client/skills
+            cp -r source/skills/shiny-music skills-repo/plugins/shiny-client/skills/
           fi
 
       - name: Create Pull Request
