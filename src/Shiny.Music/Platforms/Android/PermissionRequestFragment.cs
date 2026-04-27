@@ -1,9 +1,11 @@
 using Android.Content.PM;
+using AndroidX.Core.App;
 using AndroidX.Fragment.App;
+using Fragment = AndroidX.Fragment.App.Fragment;
 
 namespace Shiny.Music;
 
-internal class PermissionRequestFragment : Fragment
+class PermissionRequestFragment : Fragment
 {
     const int RequestCode = 9001;
 
@@ -19,9 +21,10 @@ internal class PermissionRequestFragment : Fragment
             .BeginTransaction()
             .Add(this, "shiny_music_perm")
             .CommitAllowingStateLoss();
+        
         activity.SupportFragmentManager.ExecutePendingTransactions();
-
-        RequestPermissions([permission], RequestCode);
+        ActivityCompat.RequestPermissions(this.Activity, [permission], RequestCode);
+        
         return tcs.Task;
     }
 
