@@ -133,10 +133,7 @@ public partial class MainViewModel(
                 return;
         }
 
-        await navigator.NavigateToTracks(
-            title: title,
-            tracksJson: SerializeTracks(tracks)
-        );
+        await navigator.NavigateTo<TracksViewModel>(vm => vm.SetTracks(title, tracks));
     }
 
     [RelayCommand]
@@ -277,15 +274,7 @@ public partial class MainViewModel(
             playlists.Select(p => new PlaylistPickerItem(p.Id, p.Name)));
     }
 
-    // Simple serialization to pass track data to TracksPage
-    static string SerializeTracks(IReadOnlyList<MusicMetadata> tracks)
-    {
-        return System.Text.Json.JsonSerializer.Serialize(
-            tracks.Select(t => new TrackDto(t.Id, t.Title, t.Artist, t.Album, t.Genre,
-                t.Duration, t.AlbumArtUri, t.IsExplicit, t.ContentUri, t.StoreId, t.Year)).ToList(),
-            TrackDtoJsonContext.Default.ListTrackDto
-        );
-    }
+
 }
 
 public record GroupItem(string Id, string DisplayName, int Count);

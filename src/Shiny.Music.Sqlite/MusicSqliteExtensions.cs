@@ -26,8 +26,7 @@ public static class MusicSqliteExtensions
 }
 
 [JsonSerializable(typeof(MusicMetadata))]
+[JsonSerializable(typeof(PlaylistInfo))]
 [JsonSerializable(typeof(PlayCount))]
-[JsonSerializable(typeof(PlayCountDoc))]
 [JsonSerializable(typeof(PlaylistDoc))]
-[JsonSerializable(typeof(PlaylistTrackDoc))]
 public partial class MusicSqliteJsonContext : JsonSerializerContext;

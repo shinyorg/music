@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Shiny;
@@ -12,10 +11,9 @@ public partial class TracksViewModel(
     IDialogs dialogs,
     IMediaLibrary library,
     PlayerViewModel player
-) : ObservableObject, IQueryAttributable, IPageLifecycleAware
+) : ObservableObject, IPageLifecycleAware
 {
-    [ShellProperty] public string Title { get; set; } = "Tracks";
-    [ShellProperty] public string TracksJson { get; set; } = "";
+    [ObservableProperty] string title = "Tracks";
 
     public PlayerViewModel Player => player;
 
@@ -29,28 +27,13 @@ public partial class TracksViewModel(
         }
     }
 
-    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    public void SetTracks(string title, IReadOnlyList<MusicMetadata> tracks)
     {
-        if (query.TryGetValue(nameof(Title), out var t))
-            Title = t?.ToString() ?? "Tracks";
+        Title = title;
+        Tracks = tracks.Select(t => new TrackItem(t)).ToList();
 
-        if (query.TryGetValue(nameof(TracksJson), out var json) && json is string jsonStr)
-        {
-            var dtos = System.Text.Json.JsonSerializer.Deserialize(
-                jsonStr, TrackDtoJsonContext.Default.ListTrackDto);
-
-            if (dtos != null)
-            {
-                Tracks = dtos.Select(d => new TrackItem(new MusicMetadata(
-                    d.Id, d.Title, d.Artist, d.Album, d.Genre,
-                    d.Duration, d.AlbumArtUri, d.IsExplicit, d.ContentUri, d.StoreId, d.Year))).ToList();
-
-                foreach (var item in Tracks)
-                    _ = item.LoadAlbumArt(library);
-            }
-        }
-
-        OnPropertyChanged(nameof(Title));
+        foreach (var item in Tracks)
+            _ = item.LoadAlbumArt(library);
     }
 
     public void OnAppearing()

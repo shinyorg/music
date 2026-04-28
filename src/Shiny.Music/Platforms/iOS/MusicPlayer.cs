@@ -37,8 +37,15 @@ public class MusicPlayer : IMusicPlayer
         set
         {
             this.volume = Math.Clamp(value, 0f, 1f);
-            if (this.avPlayer != null)
-                this.avPlayer.Volume = this.volume;
+            switch (this.activeKind)
+            {
+                case ActivePlayerKind.AVPlayer when this.avPlayer != null:
+                    this.avPlayer.Volume = this.volume;
+                    break;
+                case ActivePlayerKind.SystemMusicPlayer:
+                    this.AppPlayer.Volume = this.volume;
+                    break;
+            }
         }
     }
 
@@ -117,6 +124,7 @@ public class MusicPlayer : IMusicPlayer
         var collection = new MPMediaItemCollection(items);
         this.AppPlayer.SetQueue(collection);
         await this.AppPlayer.PrepareToPlayAsync();
+        this.AppPlayer.Volume = this.volume;
         this.AppPlayer.Play();
 
         this.explicitStop = false;
