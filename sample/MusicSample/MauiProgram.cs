@@ -1,5 +1,4 @@
 using Shiny;
-using Shiny.Music;
 
 namespace MusicSample;
 
@@ -18,7 +17,6 @@ public static class MauiProgram
             });
 
         builder.Services.AddShinyMusic();
-        builder.Services.AddMusicManagementSqlite();
         builder.Services.AddSingleton<PlayerViewModel>();
 
         return builder.Build();

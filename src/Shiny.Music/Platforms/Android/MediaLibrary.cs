@@ -8,8 +8,9 @@ using Uri = Android.Net.Uri;
 
 namespace Shiny.Music;
 
-public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
+public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore playCounts) : IMediaLibrary
 {
+    readonly CustomPlaylistStore customPlaylists = new();
     static readonly string[] AudioProjection = 
     [
         MediaStore.Audio.Media.InterfaceConsts.Id,
@@ -49,12 +50,13 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
         return fragment.RequestAsync(fragmentActivity, permission);
     }
 
-    public Task<IReadOnlyList<MusicMetadata>> GetAllTracksAsync()
+    public async Task<IReadOnlyList<MusicMetadata>> GetAllTracksAsync()
     {
-        return Task.Run(() =>
+        var tracks = await Task.Run(() =>
         {
             var activity = GetActivity();
-            var tracks = new List<MusicMetadata>();
+            var genreMap = BuildGenreMap(activity);
+            var result = new List<MusicMetadata>();
             var contentUri = MediaStore.Audio.Media.ExternalContentUri!;
 
             using var cursor = activity.ContentResolver!.Query(
@@ -69,20 +71,23 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
             {
                 while (cursor.MoveToNext())
                 {
-                    tracks.Add(ReadTrack(cursor));
+                    result.Add(ReadTrack(cursor, genreMap));
                 }
             }
 
-            return (IReadOnlyList<MusicMetadata>)tracks.AsReadOnly();
+            return result;
         });
+
+        return await WithPlayCounts(tracks);
     }
 
-    public Task<IReadOnlyList<MusicMetadata>> SearchTracksAsync(string query)
+    public async Task<IReadOnlyList<MusicMetadata>> SearchTracksAsync(string query)
     {
-        return Task.Run(() =>
+        var tracks = await Task.Run(() =>
         {
             var activity = GetActivity();
-            var tracks = new List<MusicMetadata>();
+            var genreMap = BuildGenreMap(activity);
+            var result = new List<MusicMetadata>();
             var contentUri = MediaStore.Audio.Media.ExternalContentUri!;
 
             var selection = $"{MediaStore.Audio.Media.InterfaceConsts.IsMusic} != 0 AND (" +
@@ -103,12 +108,14 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
             {
                 while (cursor.MoveToNext())
                 {
-                    tracks.Add(ReadTrack(cursor));
+                    result.Add(ReadTrack(cursor, genreMap));
                 }
             }
 
-            return (IReadOnlyList<MusicMetadata>)tracks.AsReadOnly();
+            return result;
         });
+
+        return await WithPlayCounts(tracks);
     }
 
     public Task<bool> CopyTrackAsync(MusicMetadata track, string destinationPath)
@@ -139,6 +146,18 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
         });
     }
 
+    async Task<IReadOnlyList<MusicMetadata>> WithPlayCounts(List<MusicMetadata> tracks)
+    {
+        var counts = await playCounts.LoadAllAsync();
+        if (counts.Count == 0)
+            return tracks.AsReadOnly();
+
+        return tracks
+            .Select(t => counts.TryGetValue(t.Id, out var count) ? t with { PlayCount = count } : t)
+            .ToList()
+            .AsReadOnly();
+    }
+
     static string GetRequiredPermission()
     {
         if (OperatingSystem.IsAndroidVersionAtLeast(33))
@@ -147,7 +166,7 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
         return Android.Manifest.Permission.ReadExternalStorage;
     }
 
-    static MusicMetadata ReadTrack(ICursor cursor)
+    static MusicMetadata ReadTrack(ICursor cursor, Dictionary<long, string>? genreMap = null)
     {
         var id = cursor.GetLong(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Media.InterfaceConsts.Id));
         var title = cursor.GetString(cursor.GetColumnIndexOrThrow(MediaStore.Audio.Media.InterfaceConsts.Title));
@@ -162,18 +181,45 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
             Uri.Parse("content://media/external/audio/albumart")!, albumId
         );
 
+        string? genre = null;
+        genreMap?.TryGetValue(id, out genre);
+
         return new MusicMetadata(
             Id: id.ToString(),
             Title: title,
             Artist: artist,
             Album: album,
-            Genre: null,
+            Genre: genre,
             Duration: TimeSpan.FromMilliseconds(durationMs),
             AlbumArtUri: albumArtUri?.ToString(),
             IsExplicit: null,
             ContentUri: contentUri?.ToString() ?? string.Empty,
             Year: year > 0 ? year : null
         );
+    }
+
+    Dictionary<long, string> BuildGenreMap(Activity activity)
+    {
+        var map = new Dictionary<long, string>();
+        var genreEntries = GetAllGenreEntries(activity);
+        foreach (var (genreId, genreName) in genreEntries)
+        {
+            var membersUri = MediaStore.Audio.Genres.Members.GetContentUri("external", genreId);
+            using var cursor = activity.ContentResolver!.Query(
+                membersUri!,
+                new[] { MediaStore.Audio.Media.InterfaceConsts.Id },
+                null, null, null
+            );
+            if (cursor != null)
+            {
+                while (cursor.MoveToNext())
+                {
+                    var trackId = cursor.GetLong(0);
+                    map.TryAdd(trackId, genreName);
+                }
+            }
+        }
+        return map;
     }
 
     static (string Selection, string[]? Args) BuildAudioSelection(MusicFilter? filter)
@@ -203,7 +249,7 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
                     MediaStore.Audio.Media.InterfaceConsts.Artist + " LIKE ? OR " +
                     MediaStore.Audio.Media.InterfaceConsts.Album + " LIKE ?)");
                 var searchArg = $"%{filter.SearchQuery}%";
-                args.AddRange(new[] { searchArg, searchArg, searchArg });
+                args.AddRange([ searchArg, searchArg, searchArg ]);
             }
         }
 
@@ -235,13 +281,14 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
         return entries;
     }
 
-    public Task<IReadOnlyList<MusicMetadata>> GetTracksAsync(MusicFilter filter)
+    public async Task<IReadOnlyList<MusicMetadata>> GetTracksAsync(MusicFilter filter)
     {
-        return Task.Run(() =>
+        var tracks = await Task.Run(() =>
         {
             var activity = GetActivity();
+            var genreMap = BuildGenreMap(activity);
             var (selection, selectionArgs) = BuildAudioSelection(filter);
-            var tracks = new List<MusicMetadata>();
+            var result = new List<MusicMetadata>();
 
             if (!string.IsNullOrWhiteSpace(filter.Genre))
             {
@@ -259,10 +306,10 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
                     if (cursor != null)
                     {
                         while (cursor.MoveToNext())
-                            tracks.Add(ReadTrack(cursor));
+                            result.Add(ReadTrack(cursor, genreMap));
                     }
                 }
-                tracks = tracks.DistinctBy(t => t.Id).ToList();
+                result = result.DistinctBy(t => t.Id).ToList();
             }
             else
             {
@@ -276,12 +323,14 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
                 if (cursor != null)
                 {
                     while (cursor.MoveToNext())
-                        tracks.Add(ReadTrack(cursor));
+                        result.Add(ReadTrack(cursor, genreMap));
                 }
             }
 
-            return (IReadOnlyList<MusicMetadata>)tracks.AsReadOnly();
+            return result;
         });
+
+        return await WithPlayCounts(tracks);
     }
 
     public Task<IReadOnlyList<GroupedCount<string>>> GetGenresAsync(MusicFilter? filter = null)
@@ -428,12 +477,12 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
         });
     }
 
-    public Task<IReadOnlyList<PlaylistInfo>> GetPlaylistsAsync()
+    public async Task<IReadOnlyList<PlaylistInfo>> GetPlaylistsAsync()
     {
-        return Task.Run(() =>
+        var playlists = await Task.Run(() =>
         {
             var activity = GetActivity();
-            var playlists = new List<PlaylistInfo>();
+            var result = new List<PlaylistInfo>();
 
             using var cursor = activity.ContentResolver!.Query(
                 MediaStore.Audio.Playlists.ExternalContentUri!,
@@ -462,19 +511,34 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
                         null, null, null
                     );
                     var count = membersCursor?.Count ?? 0;
-                    playlists.Add(new PlaylistInfo(id.ToString(), name, count));
+                    result.Add(new PlaylistInfo(id.ToString(), name, count));
                 }
             }
 
-            return (IReadOnlyList<PlaylistInfo>)playlists.AsReadOnly();
+            return result;
         });
+
+        var custom = await this.customPlaylists.LoadAllAsync();
+        playlists.AddRange(custom.Select(c => new PlaylistInfo(c.Id, c.Name, c.Tracks.Length)));
+
+        return playlists
+            .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList()
+            .AsReadOnly();
     }
 
-    public Task<IReadOnlyList<MusicMetadata>> GetPlaylistTracksAsync(string playlistId)
+    public async Task<IReadOnlyList<MusicMetadata>> GetPlaylistTracksAsync(string playlistId)
     {
-        return Task.Run(() =>
+        if (CustomPlaylistStore.IsCustomPlaylistId(playlistId))
+        {
+            var tracks = await this.customPlaylists.GetTracksAsync(playlistId);
+            return tracks;
+        }
+
+        return await Task.Run(() =>
         {
             var activity = GetActivity();
+            var genreMap = BuildGenreMap(activity);
             var tracks = new List<MusicMetadata>();
 
             if (!long.TryParse(playlistId, out var id))
@@ -520,12 +584,14 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
                         Uri.Parse("content://media/external/audio/albumart")!, albumId
                     );
 
+                    genreMap.TryGetValue(trackId, out var genre);
+
                     tracks.Add(new MusicMetadata(
                         Id: trackId.ToString(),
                         Title: title,
                         Artist: artist,
                         Album: album,
-                        Genre: null,
+                        Genre: genre,
                         Duration: TimeSpan.FromMilliseconds(durationMs),
                         AlbumArtUri: albumArtUri?.ToString(),
                         IsExplicit: null,
@@ -590,4 +656,19 @@ public class MediaLibrary(ActivityProvider activityProvider) : IMediaLibrary
     }
 
     public Task<bool> HasStreamingSubscriptionAsync() => Task.FromResult(false);
+
+    public async Task<PlaylistInfo> CreatePlaylistAsync(string name)
+    {
+        var playlist = await this.customPlaylists.CreateAsync(name);
+        return new PlaylistInfo(playlist.Id, playlist.Name, 0);
+    }
+
+    public Task RemovePlaylistAsync(string playlistId)
+        => this.customPlaylists.RemoveAsync(playlistId);
+
+    public Task AddTrackToPlaylistAsync(string playlistId, MusicMetadata track)
+        => this.customPlaylists.AddTrackAsync(playlistId, track);
+
+    public Task RemoveTrackFromPlaylistAsync(string playlistId, string trackId)
+        => this.customPlaylists.RemoveTrackAsync(playlistId, trackId);
 }

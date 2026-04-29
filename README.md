@@ -4,7 +4,7 @@
 
 [![Documentation](https://img.shields.io/badge/docs-shinylib.net-blue)](https://shinylib.net/client/music)
 
-A .NET library for accessing the device music library on **Android** and **iOS**. Provides a unified API for:
+A .NET library for accessing the device music library on **Android**, **iOS**, and **Mac Catalyst**. Provides a unified API for:
 
 - Requesting permissions to access music
 - Querying metadata about music on the device
@@ -12,14 +12,13 @@ A .NET library for accessing the device music library on **Android** and **iOS**
 - Browsing genres, years, and decades with track counts
 - Browsing playlists and their tracks
 - Playing music files from the device library
-- Controlling playback volume
-- Streaming Apple Music subscription tracks via `MPMusicPlayerController` (iOS)
-- Identifying songs by listening to audio (iOS via ShazamKit)
+- Identifying songs by listening to audio (Apple platforms via ShazamKit)
 - Fetching lyrics (plain text and synced LRC format)
 - Retrieving album artwork
 - Copying music files (where permitted)
 - Checking for active streaming subscriptions
-- Managing custom playlists and play counts via `IMusicManager` (backed by SQLite)
+- Managing playlists — create, remove, and add/remove tracks via `IMediaLibrary`
+- Automatic play count tracking (Apple platforms via MPMediaItem, Android via local storage)
 
 ## Installation
 
@@ -30,7 +29,6 @@ Add a project reference to `Shiny.Music` from your .NET MAUI or platform-specifi
 ```csharp
 // Register in MauiProgram.cs
 builder.Services.AddShinyMusic();
-builder.Services.AddMusicManagementSqlite(); // Optional: custom playlists & play counts
 
 // Use via dependency injection
 public class MyPage
@@ -38,14 +36,12 @@ public class MyPage
     readonly IMediaLibrary _library;
     readonly IMusicPlayer _player;
     readonly ILyricsProvider _lyrics;
-    readonly IMusicManager _manager;
 
-    public MyPage(IMediaLibrary library, IMusicPlayer player, ILyricsProvider lyrics, IMusicManager manager)
+    public MyPage(IMediaLibrary library, IMusicPlayer player, ILyricsProvider lyrics)
     {
         _library = library;
         _player = player;
         _lyrics = lyrics;
-        _manager = manager;
     }
 
     async Task Example()
@@ -54,64 +50,53 @@ public class MyPage
         var status = await _library.RequestPermissionAsync();
         if (status != PermissionStatus.Granted) return;
 
-        // 2. Get all tracks
+        // 2. Get all tracks (includes PlayCount)
         var tracks = await _library.GetAllTracksAsync();
 
         // 3. Play a track
         await _player.PlayAsync(tracks[0]);
 
-        // 4. Control volume
-        _player.Volume = 0.75f;
-
-        // 5. Get album artwork
+        // 4. Get album artwork
         var artPath = await _library.GetAlbumArtPathAsync(tracks[0].Id);
 
-        // 6. Fetch lyrics
+        // 5. Fetch lyrics
         var lyrics = await _lyrics.GetLyricsAsync(tracks[0]);
 
-        // 7. Browse genres with counts
+        // 6. Browse genres with counts
         var genres = await _library.GetGenresAsync();
 
-        // 8. Browse decades with counts
+        // 7. Browse decades with counts
         var decades = await _library.GetDecadesAsync();
 
-        // 9. Filter: Rock tracks from the 1990s
+        // 8. Filter: Rock tracks from the 1990s
         var filtered = await _library.GetTracksAsync(new MusicFilter
         {
             Genre = "Rock",
             Decade = 1990
         });
 
-        // 10. Cross-query: genres within the 2000s
+        // 9. Cross-query: genres within the 2000s
         var genresIn2000s = await _library.GetGenresAsync(new MusicFilter { Decade = 2000 });
 
-        // 11. Browse playlists
+        // 10. Browse playlists
         var playlists = await _library.GetPlaylistsAsync();
 
-        // 12. Get tracks in a playlist
+        // 11. Get tracks in a playlist
         var playlistTracks = await _library.GetPlaylistTracksAsync(playlists[0].Id);
+
+        // 12. Create a playlist and add tracks
+        var newPlaylist = await _library.CreatePlaylistAsync("Favorites");
+        await _library.AddTrackToPlaylistAsync(newPlaylist.Id, tracks[0]);
 
         // 13. Copy a track
         var dest = Path.Combine(FileSystem.AppDataDirectory, "copy.m4a");
         var success = await _library.CopyTrackAsync(tracks[0], dest);
 
-        // 14. Identify a song (iOS only)
+        // 14. Identify a song (Apple platforms only)
         var identifier = /* resolve IMusicIdentifier from DI */;
         var identified = await identifier.ListenAsync();
         if (identified != null)
             Console.WriteLine($"Identified: {identified.Title} by {identified.Artist}");
-
-        // 15. Track play counts
-        await _manager.AddPlayCount(tracks[0].Id);
-        var count = await _manager.GetPlayCount(tracks[0].Id);
-
-        // 16. Custom playlists
-        await _manager.CreatePlaylist("my-id", "Favorites");
-        await _manager.AddTrackToPlaylist("my-id", tracks[0]);
-        var customTracks = await _manager.GetPlaylistTracks("my-id");
-
-        // 17. Browse all custom playlists
-        var customPlaylists = await _manager.GetAllPlaylists();
     }
 }
 ```
@@ -146,7 +131,7 @@ Add these to your `AndroidManifest.xml`:
 
 ---
 
-### iOS
+### Apple Platforms (iOS, Mac Catalyst)
 
 #### Required Info.plist Entry
 
@@ -166,21 +151,19 @@ For song identification via `IMusicIdentifier`, also add:
 
 #### Notes
 
-- **Minimum iOS Version**: 15.0
+- **Supported platforms**: iOS 15.0+, Mac Catalyst 15.0+
 - Permission is requested via `MPMediaLibrary.RequestAuthorization`
-- Music metadata is queried using `MPMediaQuery` from the `MediaPlayer` framework; playlists via `MPMediaQuery.PlaylistsQuery`
-- **Local playback** uses `AVAudioPlayer` from `AVFoundation` with the item's `AssetURL`
-- **Streaming playback** uses `MPMusicPlayerController.SystemMusicPlayer` for Apple Music subscription tracks with a `StoreId`
-- `HasStreamingSubscriptionAsync()` checks `SKCloudServiceController` for the `MusicCatalogPlayback` capability
+- Music metadata is queried using `MPMediaQuery` (MediaPlayer framework)
+- **Playback** uses `MPMusicPlayerController.ApplicationMusicPlayer` for all tracks
+- `HasStreamingSubscriptionAsync()` checks MusicKit `MusicSubscription.GetCurrentAsync`
+- **Playlist management** uses locally-stored custom playlists (system playlists from `MPMediaQuery.PlaylistsQuery` are read-only)
 - **Copy Limitations**:
-  - Locally synced / purchased (non-DRM) tracks can be exported via `AVAssetExportSession`
-  - **Apple Music subscription (DRM-protected) tracks cannot be copied.** The `AssetURL` is empty for these items, and iOS does not provide filesystem access to DRM content.
-  - The `CopyTrackAsync` method returns `false` for tracks that cannot be exported.
+  - Non-DRM tracks can be exported via `AVAssetExportSession`
+  - **DRM-protected tracks cannot be copied.** `CopyTrackAsync` returns `false` for these.
   - Exported format is Apple M4A (`.m4a`)
-
 #### Entitlements
 
-No special entitlements are required beyond the Info.plist usage description. The `MediaPlayer` and `AVFoundation` frameworks are standard iOS frameworks.
+No special entitlements are required beyond the Info.plist usage description.
 
 ---
 
@@ -202,7 +185,11 @@ No special entitlements are required beyond the Info.plist usage description. Th
 | `GetPlaylistTracksAsync(playlistId)` | Returns all tracks in the specified playlist, in playlist order |
 | `GetAlbumArtPathAsync(trackId)` | Returns a file path to album artwork for the track, or `null` |
 | `CopyTrackAsync(track, destPath)` | Copies a track to the specified path; returns `false` if not possible |
-| `HasStreamingSubscriptionAsync()` | Checks for an active streaming subscription (iOS: Apple Music; Android: always `false`) |
+| `HasStreamingSubscriptionAsync()` | Checks for an active streaming subscription (Apple platforms: Apple Music; Android: always `false`) |
+| `CreatePlaylistAsync(name)` | Creates a new playlist; returns `PlaylistInfo` |
+| `RemovePlaylistAsync(playlistId)` | Removes a playlist |
+| `AddTrackToPlaylistAsync(playlistId, track)` | Adds a track to a playlist (no-op if already present) |
+| `RemoveTrackFromPlaylistAsync(playlistId, trackId)` | Removes a track from a playlist |
 
 ### `IMusicPlayer`
 
@@ -216,7 +203,6 @@ No special entitlements are required beyond the Info.plist usage description. Th
 | `State` | Current `PlaybackState` (Stopped/Playing/Paused) |
 | `CurrentTrack` | The currently loaded `MusicMetadata` |
 | `Position` / `Duration` | Current position and total duration |
-| `Volume` | Playback volume from 0.0 to 1.0 (default 1.0) |
 | `StateChanged` | Event fired when playback state changes |
 | `PlaybackCompleted` | Event fired when a track finishes |
 
@@ -224,7 +210,7 @@ No special entitlements are required beyond the Info.plist usage description. Th
 
 | Member | Description |
 |---|---|
-| `ListenAsync(cancellationToken)` | Listens via microphone and returns a `MusicIdentificationResult`, or `null` if no match. iOS only (ShazamKit). |
+| `ListenAsync(cancellationToken)` | Listens via microphone and returns a `MusicIdentificationResult`, or `null` if no match. Apple platforms only (ShazamKit). |
 
 ### `MusicIdentificationResult`
 
@@ -272,11 +258,12 @@ All properties are optional and combined with AND logic. Pass to `GetTracksAsync
 | `Album` | `string?` | Album name |
 | `Genre` | `string?` | Genre (may be null) |
 | `Duration` | `TimeSpan` | Track duration |
-| `AlbumArtUri` | `string?` | Album art URI (Android only; null on iOS) |
-| `IsExplicit` | `bool?` | Explicit content flag (iOS only; null on Android) |
-| `ContentUri` | `string` | URI used for playback and file operations |
-| `StoreId` | `string?` | Apple Music catalog ID for streaming (iOS only) |
+| `AlbumArtUri` | `string?` | Album art URI (Android: MediaStore content URI; Apple platforms: use `GetAlbumArtPathAsync` for cached file) |
+| `IsExplicit` | `bool?` | Explicit content flag (Apple platforms only via `MPMediaItem.IsExplicitItem`; null on Android) |
+| `ContentUri` | `string` | URI for playback/copy. Android: `content://` URI. Apple platforms: `ipod-library://` asset URL (empty for DRM tracks). |
+| `StoreId` | `string?` | Track identifier for `MPMusicPlayerController` playback (Apple platforms only; null on Android) |
 | `Year` | `int?` | Release year |
+| `PlayCount` | `int` | Times played. Apple: from `MPMediaItem.PlayCount`. Android: from local store. Default 0. |
 
 ### `PlaylistInfo`
 
@@ -285,28 +272,6 @@ All properties are optional and combined with AND logic. Pass to `GetTracksAsync
 | `Id` | `string` | Platform-specific unique identifier for the playlist |
 | `Name` | `string` | The display name of the playlist |
 | `SongCount` | `int` | The number of tracks in the playlist |
-
-### `IMusicManager`
-
-Custom playlist management and play count tracking, backed by SQLite via `Shiny.DocumentDb`. Registered with `AddMusicManagementSqlite()`.
-
-| Method | Description |
-|---|---|
-| `AddPlayCount(trackId)` | Increments the play count for the specified track by one |
-| `GetPlayCount(trackId)` | Gets the current play count, or 0 if never played |
-| `GetAllPlayCounts()` | Returns all recorded play counts |
-| `GetAllPlaylists()` | Returns all custom playlists with their track counts |
-| `CreatePlaylist(playlistId, name)` | Creates a new playlist or updates the name of an existing one |
-| `RemovePlaylist(playlistId)` | Removes a playlist and all of its associated tracks |
-| `AddTrackToPlaylist(playlistId, metadata)` | Adds a track to a playlist (no-op if already present) |
-| `GetPlaylistTracks(playlistId)` | Gets all tracks belonging to the specified playlist |
-
-### `PlayCount`
-
-| Property | Type | Description |
-|---|---|---|
-| `TrackId` | `string` | The platform-specific unique identifier for the track |
-| `Count` | `int` | The total number of times the track has been played |
 
 ### `GroupedCount<T>`
 
@@ -317,7 +282,7 @@ Custom playlist management and play count tracking, backed by SQLite via `Shiny.
 
 ## Sample App
 
-The `sample/MusicSample` project is a .NET MAUI app that demonstrates all library features including browsing, filtering, playback with volume control, album art display, and lyrics with synced highlighting.
+The `sample/MusicSample` project is a .NET MAUI app that demonstrates all library features including browsing, filtering, playback, album art display, and lyrics with synced highlighting.
 
 ### Running the Sample
 

@@ -2,11 +2,12 @@
 
     <PropertyGroup>
         <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)</TargetFrameworks>
-        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-ios</TargetFrameworks>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-ios26.2</TargetFrameworks>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-maccatalyst26.2</TargetFrameworks>
         <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-android</TargetFrameworks>
         <RootNamespace>Shiny.Music</RootNamespace>
-        <Description>Access the device music library on Android and iOS - permissions, metadata querying, playback, and file copy</Description>
-        <PackageTags>music;media;audio;android;ios;maui;shiny</PackageTags>
+        <Description>Access the device music library on Android, iOS, and Mac Catalyst - permissions, metadata querying, playback, and file copy</Description>
+        <PackageTags>music;media;audio;android;ios;maccatalyst;maui;shiny</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>
@@ -17,20 +18,22 @@
         </PackageReference>
     </ItemGroup>
 
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' Or $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">
+        <DefineConstants>$(DefineConstants);APPLE</DefineConstants>
+    </PropertyGroup>
+
     <ItemGroup>
         <Compile Remove="Platforms\**\*.cs"/>
     </ItemGroup>
 
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
         <Compile Include="Platforms\Android\**\*.cs"/>
-        <PackageReference Include="Xamarin.AndroidX.Core" />
+        <PackageReference Include="Xamarin.AndroidX.Core"/>
+        <PackageReference Include="Xamarin.AndroidX.Fragment"/>
     </ItemGroup>
 
-    <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
-        <Compile Include="Platforms\iOS\**\*.cs"/>
-    </ItemGroup>
-
-    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
-      <PackageReference Include="Xamarin.AndroidX.Fragment" />
+    <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' Or $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">
+        <Compile Include="Platforms\Apple\**\*.cs"/>
+        <PackageReference Include="SwiftBindings.MusicKit"/>
     </ItemGroup>
 </Project>

@@ -8,7 +8,7 @@ public interface IMediaLibrary
     /// <summary>
     /// Requests permission to access the device music library. Prompts the user if they have not yet been asked.
     /// On Android, this requests <c>READ_MEDIA_AUDIO</c> (API 33+) or <c>READ_EXTERNAL_STORAGE</c> (older).
-    /// On iOS, this calls <c>MPMediaLibrary.RequestAuthorization</c>.
+    /// On Apple platforms, this calls <c>MPMediaLibrary.RequestAuthorization</c>.
     /// </summary>
     /// <returns>The resulting <see cref="PermissionStatus"/> after the user responds to the prompt.</returns>
     Task<PermissionStatus> RequestPermissionAsync();
@@ -45,7 +45,7 @@ public interface IMediaLibrary
     /// <summary>
     /// Copies a music file to the specified destination path.
     /// On Android, this reads from the ContentResolver input stream.
-    /// On iOS, this uses <c>AVAssetExportSession</c> to export the track as M4A.
+    /// On Apple platforms, this uses <c>AVAssetExportSession</c> to export the track as M4A.
     /// DRM-protected Apple Music tracks cannot be copied and will return <c>false</c>.
     /// </summary>
     /// <param name="track">The track to copy. Check that <see cref="MusicMetadata.ContentUri"/> is not empty before calling.</param>
@@ -86,8 +86,8 @@ public interface IMediaLibrary
 
     /// <summary>
     /// Gets all playlists from the device music library with their song counts, sorted alphabetically by name.
-    /// On Android, this reads from <c>MediaStore.Audio.Playlists</c>.
-    /// On iOS, this reads from <c>MPMediaQuery.PlaylistsQuery</c>.
+    /// On Android, this reads from <c>MediaStore.Audio.Playlists</c> and locally-stored custom playlists.
+    /// On Apple platforms, this reads from <c>MPMediaQuery.PlaylistsQuery</c> and locally-stored custom playlists.
     /// Permission must be granted before calling this method.
     /// </summary>
     /// <returns>A read-only list of <see cref="PlaylistInfo"/> for every playlist on the device, sorted alphabetically.</returns>
@@ -96,7 +96,7 @@ public interface IMediaLibrary
     /// <summary>
     /// Gets all tracks in the specified playlist.
     /// On Android, this queries <c>MediaStore.Audio.Playlists.Members</c> for the given playlist ID.
-    /// On iOS, this retrieves tracks from the <c>MPMediaPlaylist</c> with the matching persistent ID.
+    /// On Apple platforms, this retrieves tracks from the <c>MPMediaPlaylist</c> with the matching persistent ID.
     /// Permission must be granted before calling this method.
     /// </summary>
     /// <param name="playlistId">The platform-specific playlist identifier returned by <see cref="GetPlaylistsAsync"/>.</param>
@@ -106,7 +106,7 @@ public interface IMediaLibrary
     /// <summary>
     /// Gets the file path to the album artwork image for the specified track.
     /// On Android, this returns the content URI for the album art from MediaStore.
-    /// On iOS, this exports the <c>MPMediaItem.Artwork</c> image to a cached file and returns its path.
+    /// On Apple platforms, this exports the <c>MPMediaItem.Artwork</c> image to a cached file and returns its path.
     /// Returns <c>null</c> if no artwork is available for the track.
     /// </summary>
     /// <param name="trackId">The platform-specific track identifier from <see cref="MusicMetadata.Id"/>.</param>
@@ -115,9 +115,38 @@ public interface IMediaLibrary
 
     /// <summary>
     /// Checks whether the user has an active music streaming subscription that allows catalog playback.
-    /// On iOS, this checks for Apple Music subscription capability via <c>SKCloudServiceController</c>.
+    /// On Apple platforms, this checks for Apple Music subscription capability via MusicKit <c>MusicSubscription</c>.
     /// On Android, this always returns <c>false</c>.
     /// </summary>
     /// <returns><c>true</c> if the user can play streaming catalog content; otherwise <c>false</c>.</returns>
     Task<bool> HasStreamingSubscriptionAsync();
+
+    /// <summary>
+    /// Creates a new locally-stored custom playlist with the given name.
+    /// On both platforms, playlists are persisted as JSON in local app data.
+    /// </summary>
+    /// <param name="name">The display name of the playlist.</param>
+    /// <returns>The created playlist info.</returns>
+    Task<PlaylistInfo> CreatePlaylistAsync(string name);
+
+    /// <summary>
+    /// Removes a custom playlist by its identifier.
+    /// </summary>
+    /// <param name="playlistId">The custom playlist identifier.</param>
+    Task RemovePlaylistAsync(string playlistId);
+
+    /// <summary>
+    /// Adds a track to an existing custom playlist. No-op if the track already exists in the playlist.
+    /// </summary>
+    /// <param name="playlistId">The custom playlist identifier.</param>
+    /// <param name="track">The track to add.</param>
+    Task AddTrackToPlaylistAsync(string playlistId, MusicMetadata track);
+
+    /// <summary>
+    /// Removes a track from an existing custom playlist.
+    /// </summary>
+    /// <param name="playlistId">The custom playlist identifier.</param>
+    /// <param name="trackId">The platform-specific track identifier to remove.</param>
+    Task RemoveTrackFromPlaylistAsync(string playlistId, string trackId);
+
 }

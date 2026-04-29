@@ -5,7 +5,6 @@ namespace Shiny.Music;
 
 public class MusicIdentifier : IMusicIdentifier
 {
-    // Strong references to prevent GC collection while native callbacks are pending
     SHSession? shSession;
     SessionDelegate? sessionDelegate;
     SHSignatureGenerator? signatureGenerator;
@@ -26,32 +25,31 @@ public class MusicIdentifier : IMusicIdentifier
         });
 
         var audioSession = AVAudioSession.SharedInstance();
-            audioSession.SetCategory(AVAudioSessionCategory.Record);
-            audioSession.SetActive(true);
+        audioSession.SetCategory(AVAudioSessionCategory.Record);
+        audioSession.SetActive(true);
 
-            shSession = new SHSession();
-            sessionDelegate = new SessionDelegate(tcs);
-            shSession.Delegate = sessionDelegate;
-            signatureGenerator = new SHSignatureGenerator();
-            audioEngine = new AVAudioEngine();
+        shSession = new SHSession();
+        sessionDelegate = new SessionDelegate(tcs);
+        shSession.Delegate = sessionDelegate;
+        signatureGenerator = new SHSignatureGenerator();
+        audioEngine = new AVAudioEngine();
 
-            var inputNode = audioEngine.InputNode;
-            var recordingFormat = inputNode.GetBusOutputFormat(0);
+        var inputNode = audioEngine.InputNode;
+        var recordingFormat = inputNode.GetBusOutputFormat(0);
 
-            inputNode.InstallTapOnBus(0, 1024, recordingFormat, (buffer, when) =>
-            {
-                signatureGenerator.Append(buffer, when, out _);
-            });
+        inputNode.InstallTapOnBus(0, 1024, recordingFormat, (buffer, when) =>
+        {
+            signatureGenerator.Append(buffer, when, out _);
+        });
 
-            audioEngine.Prepare();
-            audioEngine.StartAndReturnError(out var engineError);
-            if (engineError != null)
-            {
-                tcs.TrySetException(new Exception($"Failed to start audio engine: {engineError.LocalizedDescription}"));
-                return null;
-            }
+        audioEngine.Prepare();
+        audioEngine.StartAndReturnError(out var engineError);
+        if (engineError != null)
+        {
+            tcs.TrySetException(new Exception($"Failed to start audio engine: {engineError.LocalizedDescription}"));
+            return null;
+        }
 
-        // Collect audio then match
         Task.Delay(TimeSpan.FromSeconds(5), cancellationToken).ContinueWith(_ =>
         {
             StopAudioEngine();
@@ -90,14 +88,14 @@ public class MusicIdentifier : IMusicIdentifier
         audioEngine = null;
     }
 
-    class SessionDelegate : NSObject, ISHSessionDelegate
+    class SessionDelegate : Foundation.NSObject, ISHSessionDelegate
     {
         readonly TaskCompletionSource<MusicIdentificationResult?> _tcs;
 
         public SessionDelegate(TaskCompletionSource<MusicIdentificationResult?> tcs)
             => _tcs = tcs;
 
-        [Export("session:didFindMatch:")]
+        [Foundation.Export("session:didFindMatch:")]
         public void DidFindMatch(SHSession session, SHMatch match)
         {
             var item = match.MediaItems.FirstOrDefault();
@@ -119,8 +117,8 @@ public class MusicIdentifier : IMusicIdentifier
             _tcs.TrySetResult(result);
         }
 
-        [Export("session:didNotFindMatchForSignature:error:")]
-        public void DidNotFindMatch(SHSession session, SHSignature signature, NSError? error)
+        [Foundation.Export("session:didNotFindMatchForSignature:error:")]
+        public void DidNotFindMatch(SHSession session, SHSignature signature, Foundation.NSError? error)
         {
             if (error != null)
                 _tcs.TrySetException(new Exception(error.LocalizedDescription));

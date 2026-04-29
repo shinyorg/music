@@ -10,8 +10,7 @@ namespace MusicSample;
 public partial class PlayerViewModel(
     IMusicPlayer player,
     IMediaLibrary library,
-    ILyricsProvider lyricsProvider,
-    IMusicManager musicManager
+    ILyricsProvider lyricsProvider
 ) : ObservableObject, IPageLifecycleAware
 {
     IDispatcherTimer? positionTimer;
@@ -31,7 +30,6 @@ public partial class PlayerViewModel(
     [ObservableProperty] string positionText = "0:00";
     [ObservableProperty] string durationText = "0:00";
     [ObservableProperty] double sliderValue;
-    [ObservableProperty] double volume = 1.0;
     [ObservableProperty] bool hasLyrics;
     [ObservableProperty] int playCount;
 
@@ -85,8 +83,7 @@ public partial class PlayerViewModel(
         _ = LoadAlbumArt(track.Id);
         _ = LoadLyrics(track);
 
-        await musicManager.AddPlayCount(track.Id);
-        PlayCount = await musicManager.GetPlayCount(track.Id);
+        PlayCount = track.PlayCount;
     }
 
     // ── Commands ────────────────────────────────────────────────
@@ -110,12 +107,6 @@ public partial class PlayerViewModel(
     {
         player.Stop();
         ResetPlayerUI();
-    }
-
-    public void ApplyVolume(double value)
-    {
-        Volume = value;
-        player.Volume = (float)value;
     }
 
     // ── Seek ────────────────────────────────────────────────────

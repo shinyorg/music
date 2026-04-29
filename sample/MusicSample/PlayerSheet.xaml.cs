@@ -132,12 +132,6 @@ public partial class PlayerSheet : FloatingPanel
             vm.SeekSliderChanged(e.NewValue);
     }
 
-    void OnVolumeChanged(object? sender, ValueChangedEventArgs e)
-    {
-        if (BindingContext is PlayerViewModel vm)
-            vm.ApplyVolume(e.NewValue);
-    }
-
     async void OnLyricsClicked(object? sender, EventArgs e)
     {
         if (BindingContext is PlayerViewModel vm)

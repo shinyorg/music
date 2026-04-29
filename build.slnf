@@ -1,9 +1,8 @@
-﻿{
+{
     "solution": {
         "path": "Music.slnx",
         "projects": [
-            "src\\Shiny.Music\\Shiny.Music.csproj",
-            "src\\Shiny.Music.Sqlite\\Shiny.Music.Sqlite.csproj"
+            "src\\Shiny.Music\\Shiny.Music.csproj"
         ]
     }
 }

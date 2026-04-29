@@ -19,14 +19,15 @@ public static class MusicServiceCollectionExtensions
     {
 #if ANDROID
         services.TryAddSingleton<ActivityProvider>();
+        services.TryAddSingleton<PlayCountStore>();
 #endif
-#if ANDROID || IOS
-        services.TryAddSingleton<IMediaLibrary, MediaLibrary>();
-        services.TryAddSingleton<IMusicPlayer, MusicPlayer>();
+#if ANDROID || APPLE
+        services.TryAddSingleton<IMediaLibrary, Shiny.Music.MediaLibrary>();
+        services.TryAddSingleton<IMusicPlayer, Shiny.Music.MusicPlayer>();
         services.TryAddSingleton<ILyricsProvider>(sp => new LrcLibLyricsProvider(new HttpClient()));
 #endif
-#if IOS
-        services.TryAddSingleton<IMusicIdentifier, MusicIdentifier>();
+#if APPLE
+        services.TryAddSingleton<IMusicIdentifier, Shiny.Music.MusicIdentifier>();
 #endif
         return services;
     }

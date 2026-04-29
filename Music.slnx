@@ -13,6 +13,5 @@
     <File Path="version.json" />
   </Folder>
   <Project Path="sample/MusicSample/MusicSample.csproj" />
-  <Project Path="src/Shiny.Music.Sqlite/Shiny.Music.Sqlite.csproj" />
   <Project Path="src/Shiny.Music/Shiny.Music.csproj" />
 </Solution>
