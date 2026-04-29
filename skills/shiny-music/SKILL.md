@@ -147,7 +147,19 @@ public static class MauiProgram
 <string>This app needs access to your music library to browse and play your music.</string>
 ```
 
-**This key is mandatory.** The app will crash on launch without it. No special entitlements are required.
+**This key is mandatory.** The app will crash on launch without it.
+
+#### ShazamKit Entitlement
+
+For song identification via `IMusicIdentifier`, add the ShazamKit entitlement to your project file:
+
+```xml
+<ItemGroup Condition="$(TargetFramework.Contains('-ios'))">
+    <CustomEntitlements Include="com.apple.developer.shazamkit" Type="Boolean" Value="true" Visible="false" />
+</ItemGroup>
+```
+
+You must also enable the **ShazamKit** capability in the Apple Developer Portal for your App ID.
 
 For song identification via `IMusicIdentifier`, also add:
 

@@ -41,11 +41,16 @@
                                     </Label.FormattedText>
                                 </Label>
                             </VerticalStackLayout>
-                            <Label Grid.Column="2"
-                                   Text="{Binding Duration, StringFormat='{0:mm\\:ss}'}"
-                                   VerticalOptions="Center"
-                                   FontSize="13"
-                                   TextColor="Gray" />
+                            <VerticalStackLayout Grid.Column="2" VerticalOptions="Center" HorizontalOptions="End">
+                                <Label Text="{Binding Duration, StringFormat='{0:mm\\:ss}'}"
+                                       FontSize="13"
+                                       TextColor="Gray"
+                                       HorizontalTextAlignment="End" />
+                                <Label Text="{Binding PlayCount, StringFormat='{0} plays'}"
+                                       FontSize="11"
+                                       TextColor="Gray"
+                                       HorizontalTextAlignment="End" />
+                            </VerticalStackLayout>
                         </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

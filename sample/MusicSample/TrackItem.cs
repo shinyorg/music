@@ -10,6 +10,7 @@ public partial class TrackItem : ObservableObject
     public string? Artist => Track.Artist;
     public string? Album => Track.Album;
     public TimeSpan Duration => Track.Duration;
+    public int PlayCount => Track.PlayCount;
 
     [ObservableProperty] ImageSource? albumArt;
 

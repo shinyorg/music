@@ -5,87 +5,76 @@ namespace Shiny.Music;
 
 public class MusicIdentifier : IMusicIdentifier
 {
-    SHSession? shSession;
-    SessionDelegate? sessionDelegate;
-    SHSignatureGenerator? signatureGenerator;
-    AVAudioEngine? audioEngine;
-
     public async Task<MusicIdentificationResult?> ListenAsync(CancellationToken cancellationToken = default)
     {
-        var granted = await AVAudioApplication.RequestRecordPermissionAsync();
-        if (!granted)
+        if (!await AVAudioApplication.RequestRecordPermissionAsync())
             throw new InvalidOperationException("Microphone permission is required to identify songs.");
-
-        var tcs = new TaskCompletionSource<MusicIdentificationResult?>();
-
-        using var reg = cancellationToken.Register(() =>
-        {
-            this.Cleanup();
-            tcs.TrySetCanceled(cancellationToken);
-        });
 
         var audioSession = AVAudioSession.SharedInstance();
         audioSession.SetCategory(AVAudioSessionCategory.Record);
         audioSession.SetActive(true);
 
-        shSession = new SHSession();
-        sessionDelegate = new SessionDelegate(tcs);
-        shSession.Delegate = sessionDelegate;
-        signatureGenerator = new SHSignatureGenerator();
-        audioEngine = new AVAudioEngine();
+        var sigGen = new SHSignatureGenerator();
+        var engine = new AVAudioEngine();
+        var inputNode = engine.InputNode;
+        var format = inputNode.GetBusOutputFormat(0);
 
-        var inputNode = audioEngine.InputNode;
-        var recordingFormat = inputNode.GetBusOutputFormat(0);
-
-        inputNode.InstallTapOnBus(0, 1024, recordingFormat, (buffer, when) =>
+        inputNode.InstallTapOnBus(0, 4096, format, (buffer, when) =>
         {
-            signatureGenerator.Append(buffer, when, out _);
+            try { sigGen.Append(buffer, when, out _); }
+            catch { }
         });
 
-        audioEngine.Prepare();
-        audioEngine.StartAndReturnError(out var engineError);
-        if (engineError != null)
+        engine.Prepare();
+        engine.StartAndReturnError(out var engineError);
+        if (String.IsWhitespaceOrNull(engineError?.LocalizedDescription))
         {
-            tcs.TrySetException(new Exception($"Failed to start audio engine: {engineError.LocalizedDescription}"));
-            return null;
+            engine.Dispose();
+            try { audioSession.SetActive(false); } catch { }
+            throw new InvalidOperationException($"Failed to start audio engine: {engineError.LocalizedDescription}");
         }
 
-        Task.Delay(TimeSpan.FromSeconds(5), cancellationToken).ContinueWith(_ =>
-        {
-            StopAudioEngine();
-            var signature = signatureGenerator.Signature;
-            shSession.Match(signature);
-        }, TaskContinuationOptions.OnlyOnRanToCompletion);
-
+        // Record for ~5 seconds, then stop
         try
         {
-            return await tcs.Task.ConfigureAwait(false);
+            await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
         }
         finally
         {
-            this.Cleanup();
+            try { inputNode.RemoveTapOnBus(0); } catch { }
+            try { engine.Stop(); } catch { }
+            engine.Dispose();
         }
-    }
 
-    void Cleanup()
-    {
-        StopAudioEngine();
-        shSession?.Dispose();
-        shSession = null;
-        sessionDelegate = null;
-        signatureGenerator = null;
+        var signature = sigGen.Signature;
+        if (signature == null)
+        {
+            try { audioSession.SetActive(false); } catch { }
+            return null;
+        }
 
-        var audioSession = AVAudioSession.SharedInstance();
-        audioSession.SetActive(false);
-    }
+        // ShazamKit requires Match to be called on the main thread
+        var tcs = new TaskCompletionSource<MusicIdentificationResult?>();
+        var session = new SHSession();
+        session.Delegate = new SessionDelegate(tcs);
 
-    void StopAudioEngine()
-    {
-        if (audioEngine == null) return;
-        try { audioEngine.InputNode.RemoveTapOnBus(0); } catch { }
-        audioEngine.Stop();
-        audioEngine.Dispose();
-        audioEngine = null;
+        using var reg = cancellationToken.Register(() =>
+        {
+            session.Dispose();
+            tcs.TrySetCanceled(cancellationToken);
+        });
+
+        CoreFoundation.DispatchQueue.MainQueue.DispatchAsync(() => session.Match(signature));
+
+        try
+        {
+            return await tcs.Task;
+        }
+        finally
+        {
+            session.Dispose();
+            try { audioSession.SetActive(false); } catch { }
+        }
     }
 
     class SessionDelegate : Foundation.NSObject, ISHSessionDelegate
@@ -105,7 +94,7 @@ public class MusicIdentifier : IMusicIdentifier
                 return;
             }
 
-            var result = new MusicIdentificationResult(
+            _tcs.TrySetResult(new MusicIdentificationResult(
                 Title: item.Title ?? "Unknown",
                 Artist: item.Artist,
                 Album: item.Subtitle,
@@ -113,8 +102,7 @@ public class MusicIdentifier : IMusicIdentifier
                 ArtworkUrl: item.ArtworkUrl?.AbsoluteString,
                 MusicUrl: item.AppleMusicUrl?.AbsoluteString,
                 Isrc: item.Isrc
-            );
-            _tcs.TrySetResult(result);
+            ));
         }
 
         [Foundation.Export("session:didNotFindMatchForSignature:error:")]

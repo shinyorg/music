@@ -151,7 +151,7 @@ For song identification via `IMusicIdentifier`, also add:
 
 #### Notes
 
-- **Supported platforms**: iOS 15.0+, Mac Catalyst 15.0+
+- **Supported platforms**: iOS 17.0+, Mac Catalyst 17.0+
 - Permission is requested via `MPMediaLibrary.RequestAuthorization`
 - Music metadata is queried using `MPMediaQuery` (MediaPlayer framework)
 - **Playback** uses `MPMusicPlayerController.ApplicationMusicPlayer` for all tracks
@@ -163,7 +163,15 @@ For song identification via `IMusicIdentifier`, also add:
   - Exported format is Apple M4A (`.m4a`)
 #### Entitlements
 
-No special entitlements are required beyond the Info.plist usage description.
+For song identification via `IMusicIdentifier` (ShazamKit), add the ShazamKit entitlement to your project file:
+
+```xml
+<ItemGroup Condition="$(TargetFramework.Contains('-ios'))">
+    <CustomEntitlements Include="com.apple.developer.shazamkit" Type="Boolean" Value="true" Visible="false" />
+</ItemGroup>
+```
+
+You must also enable the **ShazamKit** capability in the Apple Developer Portal for your App ID.
 
 ---
 
