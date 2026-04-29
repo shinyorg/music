@@ -27,8 +27,10 @@ public class MusicIdentifier : IMusicIdentifier
 
         engine.Prepare();
         engine.StartAndReturnError(out var engineError);
-        if (String.IsWhitespaceOrNull(engineError?.LocalizedDescription))
+        
+        if (!String.IsNullOrWhiteSpace(engineError?.LocalizedDescription))
         {
+            // something is fucked - it is getting to this line even when the var is null
             engine.Dispose();
             try { audioSession.SetActive(false); } catch { }
             throw new InvalidOperationException($"Failed to start audio engine: {engineError.LocalizedDescription}");
