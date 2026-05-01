@@ -17,7 +17,7 @@ public class ActivityProvider : Java.Lang.Object, Application.IActivityLifecycle
     public void OnActivityResumed(Activity activity) => currentActivity = activity;
     public void OnActivityPaused(Activity activity) { if (currentActivity == activity) currentActivity = null; }
     public void OnActivityCreated(Activity activity, Bundle? savedInstanceState) => currentActivity = activity;
-    public void OnActivityStarted(Activity activity) { }
+    public void OnActivityStarted(Activity activity) => currentActivity ??= activity;
     public void OnActivityStopped(Activity activity) { }
     public void OnActivitySaveInstanceState(Activity activity, Bundle outState) { }
     public void OnActivityDestroyed(Activity activity) { if (currentActivity == activity) currentActivity = null; }

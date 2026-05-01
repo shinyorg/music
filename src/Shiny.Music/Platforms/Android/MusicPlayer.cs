@@ -3,7 +3,7 @@ using Uri = Android.Net.Uri;
 
 namespace Shiny.Music;
 
-public class MusicPlayer(ActivityProvider activityProvider, PlayCountStore playCounts) : IMusicPlayer
+public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
 {
     Android.Media.MediaPlayer? player;
     MusicMetadata? currentTrack;
@@ -25,8 +25,6 @@ public class MusicPlayer(ActivityProvider activityProvider, PlayCountStore playC
     {
         this.Stop();
 
-        var activity = activityProvider.Current;
-
         this.player = new Android.Media.MediaPlayer();
         this.player.SetAudioAttributes(
             new AudioAttributes.Builder()!
@@ -36,7 +34,7 @@ public class MusicPlayer(ActivityProvider activityProvider, PlayCountStore playC
         );
 
         var uri = Uri.Parse(track.ContentUri)!;
-        this.player.SetDataSource(activity, uri);
+        this.player.SetDataSource(Application.Context, uri);
         this.player.Prepare();
         this.player.Start();
 

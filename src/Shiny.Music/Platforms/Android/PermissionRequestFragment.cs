@@ -1,5 +1,4 @@
 using Android.Content.PM;
-using AndroidX.Core.App;
 using AndroidX.Fragment.App;
 using Fragment = AndroidX.Fragment.App.Fragment;
 
@@ -23,7 +22,7 @@ class PermissionRequestFragment : Fragment
             .CommitAllowingStateLoss();
         
         activity.SupportFragmentManager.ExecutePendingTransactions();
-        ActivityCompat.RequestPermissions(this.Activity, [permission], RequestCode);
+        this.RequestPermissions([permission], RequestCode);
         
         return tcs.Task;
     }

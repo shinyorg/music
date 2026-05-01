@@ -23,26 +23,25 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
         MediaStore.Audio.Media.InterfaceConsts.Year
     ];
 
-    Activity GetActivity() => activityProvider.Current;
+    ContentResolver Resolver => Application.Context.ContentResolver!;
 
     public Task<PermissionStatus> CheckPermissionAsync()
     {
-        var activity = GetActivity();
         string permission = GetRequiredPermission();
 
-        var result = ContextCompat.CheckSelfPermission(activity, permission);
+        var result = ContextCompat.CheckSelfPermission(Application.Context, permission);
         var status = result == Permission.Granted ? PermissionStatus.Granted : PermissionStatus.Denied;
         return Task.FromResult(status);
     }
 
     public Task<PermissionStatus> RequestPermissionAsync()
     {
-        var activity = GetActivity();
         string permission = GetRequiredPermission();
 
-        if (ContextCompat.CheckSelfPermission(activity, permission) == Permission.Granted)
+        if (ContextCompat.CheckSelfPermission(Application.Context, permission) == Permission.Granted)
             return Task.FromResult(PermissionStatus.Granted);
 
+        var activity = activityProvider.Current;
         if (activity is not AndroidX.Fragment.App.FragmentActivity fragmentActivity)
             throw new InvalidOperationException("Current activity must be a FragmentActivity to request permissions");
 
@@ -54,12 +53,11 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
     {
         var tracks = await Task.Run(() =>
         {
-            var activity = GetActivity();
-            var genreMap = BuildGenreMap(activity);
+            var genreMap = BuildGenreMap();
             var result = new List<MusicMetadata>();
             var contentUri = MediaStore.Audio.Media.ExternalContentUri!;
 
-            using var cursor = activity.ContentResolver!.Query(
+            using var cursor = Resolver.Query(
                 contentUri,
                 AudioProjection,
                 MediaStore.Audio.Media.InterfaceConsts.IsMusic + " != 0",
@@ -85,8 +83,7 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
     {
         var tracks = await Task.Run(() =>
         {
-            var activity = GetActivity();
-            var genreMap = BuildGenreMap(activity);
+            var genreMap = BuildGenreMap();
             var result = new List<MusicMetadata>();
             var contentUri = MediaStore.Audio.Media.ExternalContentUri!;
 
@@ -96,7 +93,7 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
                 $"{MediaStore.Audio.Media.InterfaceConsts.Album} LIKE ?)";
             var selectionArgs = new[] { $"%{query}%", $"%{query}%", $"%{query}%" };
 
-            using var cursor = activity.ContentResolver!.Query(
+            using var cursor = Resolver.Query(
                 contentUri,
                 AudioProjection,
                 selection,
@@ -124,10 +121,9 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
         {
             try
             {
-                var activity = GetActivity();
                 var sourceUri = Uri.Parse(track.ContentUri)!;
 
-                using var inputStream = activity.ContentResolver!.OpenInputStream(sourceUri);
+                using var inputStream = Resolver.OpenInputStream(sourceUri);
                 if (inputStream == null)
                     return false;
 
@@ -198,14 +194,14 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
         );
     }
 
-    Dictionary<long, string> BuildGenreMap(Activity activity)
+    Dictionary<long, string> BuildGenreMap()
     {
         var map = new Dictionary<long, string>();
-        var genreEntries = GetAllGenreEntries(activity);
+        var genreEntries = GetAllGenreEntries();
         foreach (var (genreId, genreName) in genreEntries)
         {
             var membersUri = MediaStore.Audio.Genres.Members.GetContentUri("external", genreId);
-            using var cursor = activity.ContentResolver!.Query(
+            using var cursor = Resolver.Query(
                 membersUri!,
                 new[] { MediaStore.Audio.Media.InterfaceConsts.Id },
                 null, null, null
@@ -256,10 +252,10 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
         return (string.Join(" AND ", conditions), args.Count > 0 ? args.ToArray() : null);
     }
 
-    List<(long Id, string Name)> GetAllGenreEntries(Activity activity)
+    List<(long Id, string Name)> GetAllGenreEntries()
     {
         var entries = new List<(long Id, string Name)>();
-        using var cursor = activity.ContentResolver!.Query(
+        using var cursor = Resolver.Query(
             MediaStore.Audio.Genres.ExternalContentUri!,
             new[]
             {
@@ -285,18 +281,17 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
     {
         var tracks = await Task.Run(() =>
         {
-            var activity = GetActivity();
-            var genreMap = BuildGenreMap(activity);
+            var genreMap = BuildGenreMap();
             var (selection, selectionArgs) = BuildAudioSelection(filter);
             var result = new List<MusicMetadata>();
 
             if (!string.IsNullOrWhiteSpace(filter.Genre))
             {
-                var genreEntries = GetAllGenreEntries(activity);
+                var genreEntries = GetAllGenreEntries();
                 foreach (var (id, _) in genreEntries.Where(e => string.Equals(e.Name, filter.Genre, StringComparison.OrdinalIgnoreCase)))
                 {
                     var membersUri = MediaStore.Audio.Genres.Members.GetContentUri("external", id);
-                    using var cursor = activity.ContentResolver!.Query(
+                    using var cursor = Resolver.Query(
                         membersUri!,
                         AudioProjection,
                         selection,
@@ -313,7 +308,7 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
             }
             else
             {
-                using var cursor = activity.ContentResolver!.Query(
+                using var cursor = Resolver.Query(
                     MediaStore.Audio.Media.ExternalContentUri!,
                     AudioProjection,
                     selection,
@@ -337,8 +332,7 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
     {
         return Task.Run(() =>
         {
-            var activity = GetActivity();
-            var genreEntries = GetAllGenreEntries(activity);
+            var genreEntries = GetAllGenreEntries();
             var (selection, selectionArgs) = BuildAudioSelection(filter);
 
             if (!string.IsNullOrWhiteSpace(filter?.Genre))
@@ -350,7 +344,7 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
             foreach (var (id, name) in genreEntries)
             {
                 var membersUri = MediaStore.Audio.Genres.Members.GetContentUri("external", id);
-                using var membersCursor = activity.ContentResolver!.Query(
+                using var membersCursor = Resolver.Query(
                     membersUri!,
                     new[] { MediaStore.Audio.Media.InterfaceConsts.Id },
                     selection,
@@ -379,7 +373,6 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
     {
         return Task.Run(() =>
         {
-            var activity = GetActivity();
             var (selection, selectionArgs) = BuildAudioSelection(filter);
             selection += " AND " + MediaStore.Audio.Media.InterfaceConsts.Year + " > 0";
 
@@ -388,11 +381,11 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
 
             if (!string.IsNullOrWhiteSpace(filter?.Genre))
             {
-                var genreEntries = GetAllGenreEntries(activity);
+                var genreEntries = GetAllGenreEntries();
                 foreach (var (id, _) in genreEntries.Where(e => string.Equals(e.Name, filter.Genre, StringComparison.OrdinalIgnoreCase)))
                 {
                     var membersUri = MediaStore.Audio.Genres.Members.GetContentUri("external", id);
-                    using var cursor = activity.ContentResolver!.Query(membersUri!, projection, selection, selectionArgs, null);
+                    using var cursor = Resolver.Query(membersUri!, projection, selection, selectionArgs, null);
                     if (cursor != null)
                     {
                         while (cursor.MoveToNext())
@@ -405,7 +398,7 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
             }
             else
             {
-                using var cursor = activity.ContentResolver!.Query(
+                using var cursor = Resolver.Query(
                     MediaStore.Audio.Media.ExternalContentUri!, projection, selection, selectionArgs, null);
                 if (cursor != null)
                 {
@@ -430,7 +423,6 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
     {
         return Task.Run(() =>
         {
-            var activity = GetActivity();
             var (selection, selectionArgs) = BuildAudioSelection(filter);
             selection += " AND " + MediaStore.Audio.Media.InterfaceConsts.Year + " > 0";
 
@@ -439,11 +431,11 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
 
             if (!string.IsNullOrWhiteSpace(filter?.Genre))
             {
-                var genreEntries = GetAllGenreEntries(activity);
+                var genreEntries = GetAllGenreEntries();
                 foreach (var (id, _) in genreEntries.Where(e => string.Equals(e.Name, filter.Genre, StringComparison.OrdinalIgnoreCase)))
                 {
                     var membersUri = MediaStore.Audio.Genres.Members.GetContentUri("external", id);
-                    using var cursor = activity.ContentResolver!.Query(membersUri!, projection, selection, selectionArgs, null);
+                    using var cursor = Resolver.Query(membersUri!, projection, selection, selectionArgs, null);
                     if (cursor != null)
                     {
                         while (cursor.MoveToNext())
@@ -456,7 +448,7 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
             }
             else
             {
-                using var cursor = activity.ContentResolver!.Query(
+                using var cursor = Resolver.Query(
                     MediaStore.Audio.Media.ExternalContentUri!, projection, selection, selectionArgs, null);
                 if (cursor != null)
                 {
@@ -481,10 +473,9 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
     {
         var playlists = await Task.Run(() =>
         {
-            var activity = GetActivity();
             var result = new List<PlaylistInfo>();
 
-            using var cursor = activity.ContentResolver!.Query(
+            using var cursor = Resolver.Query(
                 MediaStore.Audio.Playlists.ExternalContentUri!,
                 new[]
                 {
@@ -505,7 +496,7 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
                         continue;
 
                     var membersUri = MediaStore.Audio.Playlists.Members.GetContentUri("external", id)!;
-                    using var membersCursor = activity.ContentResolver!.Query(
+                    using var membersCursor = Resolver.Query(
                         membersUri,
                         [ MediaStore.Audio.Playlists.Members.AudioId ],
                         null, null, null
@@ -537,8 +528,7 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
 
         return await Task.Run(() =>
         {
-            var activity = GetActivity();
-            var genreMap = BuildGenreMap(activity);
+            var genreMap = BuildGenreMap();
             var tracks = new List<MusicMetadata>();
 
             if (!long.TryParse(playlistId, out var id))
@@ -559,7 +549,7 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
                 MediaStore.Audio.Playlists.Members.PlayOrder
             };
 
-            using var cursor = activity.ContentResolver!.Query(
+            using var cursor = Resolver.Query(
                 membersUri,
                 projection,
                 MediaStore.Audio.Media.InterfaceConsts.IsMusic + " != 0",
@@ -609,13 +599,11 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
     {
         return Task.Run(() =>
         {
-            var activity = GetActivity();
-
             if (!long.TryParse(trackId, out var id))
                 return null;
 
             var cacheDir = Path.Combine(
-                activity.CacheDir!.AbsolutePath,
+                Application.Context.CacheDir!.AbsolutePath,
                 "albumart"
             );
             var filePath = Path.Combine(cacheDir, $"{trackId}.jpg");
@@ -626,7 +614,7 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
             var selection = MediaStore.Audio.Media.InterfaceConsts.Id + " = ?";
             var selectionArgs = new[] { id.ToString() };
 
-            using var cursor = activity.ContentResolver!.Query(
+            using var cursor = Resolver.Query(
                 MediaStore.Audio.Media.ExternalContentUri!, projection, selection, selectionArgs, null);
 
             if (cursor == null || !cursor.MoveToFirst())
@@ -639,7 +627,7 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
 
             try
             {
-                using var stream = activity.ContentResolver.OpenInputStream(albumArtUri!);
+                using var stream = Resolver.OpenInputStream(albumArtUri!);
                 if (stream == null)
                     return null;
 
