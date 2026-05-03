@@ -12,7 +12,6 @@ A .NET library for accessing the device music library on **Android**, **iOS**, a
 - Browsing genres, years, and decades with track counts
 - Browsing playlists and their tracks
 - Playing music files from the device library
-- Identifying songs by listening to audio (Apple platforms via ShazamKit)
 - Fetching lyrics (plain text and synced LRC format)
 - Retrieving album artwork
 - Copying music files (where permitted)
@@ -92,11 +91,6 @@ public class MyPage
         var dest = Path.Combine(FileSystem.AppDataDirectory, "copy.m4a");
         var success = await _library.CopyTrackAsync(tracks[0], dest);
 
-        // 14. Identify a song (Apple platforms only)
-        var identifier = /* resolve IMusicIdentifier from DI */;
-        var identified = await identifier.ListenAsync();
-        if (identified != null)
-            Console.WriteLine($"Identified: {identified.Title} by {identified.Artist}");
     }
 }
 ```
@@ -142,13 +136,6 @@ Add these to your `AndroidManifest.xml`:
 
 > **This is mandatory.** Your app will crash on launch if you attempt to access the music library without this key.
 
-For song identification via `IMusicIdentifier`, also add:
-
-```xml
-<key>NSMicrophoneUsageDescription</key>
-<string>Used to identify songs playing nearby.</string>
-```
-
 #### Notes
 
 - **Supported platforms**: iOS 17.0+, Mac Catalyst 17.0+
@@ -161,18 +148,6 @@ For song identification via `IMusicIdentifier`, also add:
   - Non-DRM tracks can be exported via `AVAssetExportSession`
   - **DRM-protected tracks cannot be copied.** `CopyTrackAsync` returns `false` for these.
   - Exported format is Apple M4A (`.m4a`)
-#### Entitlements
-
-For song identification via `IMusicIdentifier` (ShazamKit), add the ShazamKit entitlement to your project file:
-
-```xml
-<ItemGroup Condition="$(TargetFramework.Contains('-ios'))">
-    <CustomEntitlements Include="com.apple.developer.shazamkit" Type="Boolean" Value="true" Visible="false" />
-</ItemGroup>
-```
-
-You must also enable the **ShazamKit** capability in the Apple Developer Portal for your App ID.
-
 ---
 
 ## API Reference
@@ -213,24 +188,6 @@ You must also enable the **ShazamKit** capability in the Apple Developer Portal 
 | `Position` / `Duration` | Current position and total duration |
 | `StateChanged` | Event fired when playback state changes |
 | `PlaybackCompleted` | Event fired when a track finishes |
-
-### `IMusicIdentifier`
-
-| Member | Description |
-|---|---|
-| `ListenAsync(cancellationToken)` | Listens via microphone and returns a `MusicIdentificationResult`, or `null` if no match. Apple platforms only (ShazamKit). |
-
-### `MusicIdentificationResult`
-
-| Property | Type | Description |
-|---|---|---|
-| `Title` | `string` | The title of the identified track |
-| `Artist` | `string?` | Artist name |
-| `Album` | `string?` | Album name |
-| `Genre` | `string?` | Genre |
-| `ArtworkUrl` | `string?` | URL to album/track artwork |
-| `MusicUrl` | `string?` | URL to the track on a music streaming service |
-| `Isrc` | `string?` | International Standard Recording Code |
 
 ### `ILyricsProvider`
 

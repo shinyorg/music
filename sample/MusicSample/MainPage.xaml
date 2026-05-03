@@ -46,17 +46,7 @@
                     </HorizontalStackLayout.GestureRecognizers>
                 </HorizontalStackLayout>
                 </VerticalStackLayout>
-                <Label Grid.Column="2"
-                       Text="🎵"
-                       FontSize="22"
-                       TextColor="#A29BFE"
-                       VerticalOptions="Center"
-                       HorizontalOptions="End"
-                       Padding="0,0,4,0">
-                    <Label.GestureRecognizers>
-                        <TapGestureRecognizer Tapped="OnIdentifyTapped" />
-                    </Label.GestureRecognizers>
-                </Label>
+                <BoxView Grid.Column="2" WidthRequest="40" Color="Transparent" />
             </Grid>
         </Border>
 

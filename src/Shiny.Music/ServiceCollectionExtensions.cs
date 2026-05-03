@@ -26,9 +26,6 @@ public static class MusicServiceCollectionExtensions
         services.TryAddSingleton<IMusicPlayer, Shiny.Music.MusicPlayer>();
         services.TryAddSingleton<ILyricsProvider>(sp => new LrcLibLyricsProvider(new HttpClient()));
 #endif
-#if APPLE
-        services.TryAddSingleton<IMusicIdentifier, Shiny.Music.MusicIdentifier>();
-#endif
         return services;
     }
 }
