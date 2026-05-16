@@ -12,6 +12,7 @@
     <File Path="skills\shiny-music\SKILL.md" />
     <File Path="version.json" />
   </Folder>
+  <Project Path="macios/ShinyMusicKit.Binding/ShinyMusicKit.Binding.csproj" />
   <Project Path="sample/MusicSample/MusicSample.csproj" />
   <Project Path="src/Shiny.Music/Shiny.Music.csproj" />
 </Solution>

@@ -10,8 +10,7 @@
     </ItemGroup>
     
     <ItemGroup>
-        <PackageVersion Include="SwiftBindings.MusicKit" Version="26.2.0"/>
-        <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)"/>
+<PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)"/>
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0"/>
         <PackageVersion Include="Nerdbank.GitVersioning" Version="3.9.50"/>
         <PackageVersion Include="Xamarin.AndroidX.Core" Version="1.18.0"/>

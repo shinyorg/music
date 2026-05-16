@@ -34,7 +34,7 @@
 
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' Or $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">
         <Compile Include="Platforms\Apple\**\*.cs"/>
-        <PackageReference Include="SwiftBindings.MusicKit"/>
+        <ProjectReference Include="..\..\macios\ShinyMusicKit.Binding\ShinyMusicKit.Binding.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

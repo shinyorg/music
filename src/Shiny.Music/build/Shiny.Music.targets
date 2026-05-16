@@ -1,7 +1,7 @@
 <Project>
   <!--
     ITMS-90426 fix: inject SwiftSupport folder into the IPA.
-    MusicKitSwiftBindings.framework is a Swift framework, so the IPA must contain
+    ShinyMusicKit.framework is a Swift framework, so the IPA must contain
     SwiftSupport/iphoneos/ with the Swift standard libraries or App Store Connect
     will reject the upload.
   -->
