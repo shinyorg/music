@@ -1,6 +1,7 @@
 using Microsoft.Maui.Controls.Shapes;
 using Shiny.Maui.Controls;
 using Shiny.Maui.Controls.FloatingPanel;
+using Slider = Microsoft.Maui.Controls.Slider;
 
 namespace MusicSample;
 
