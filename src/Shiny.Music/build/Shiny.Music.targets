@@ -7,7 +7,7 @@
   -->
   <Target Name="ShinyMusicInjectSwiftSupport"
           AfterTargets="Publish"
-          Condition="'$(ArchiveOnBuild)' == 'true' AND $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+          Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
 
     <PropertyGroup>
       <!-- Resolve IPA path: prefer IpaPackagePath, fall back to OutputPath + name -->
