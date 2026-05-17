@@ -1,0 +1,29 @@
+<Project>
+  <!--
+    ITMS-90426 fix: inject SwiftSupport folder into the IPA.
+    ShinyMusicKit.framework is a Swift framework, so the IPA must contain
+    SwiftSupport/iphoneos/ with the Swift standard libraries or App Store Connect
+    will reject the upload.
+  -->
+  <Target Name="ShinyMusicInjectSwiftSupport"
+          AfterTargets="Publish"
+          Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+
+    <PropertyGroup>
+      <!-- Resolve IPA path: prefer IpaPackagePath, fall back to OutputPath + name -->
+      <_ShinyMusicIpa Condition="'$(IpaPackagePath)' != '' AND Exists('$(IpaPackagePath)')">$(IpaPackagePath)</_ShinyMusicIpa>
+      <_ShinyMusicIpa Condition="'$(_ShinyMusicIpa)' == '' AND '$(IpaPackageName)' != '' AND Exists('$(PublishDir)$(IpaPackageName)')">$(PublishDir)$(IpaPackageName)</_ShinyMusicIpa>
+      <_ShinyMusicIpa Condition="'$(_ShinyMusicIpa)' == '' AND '$(IpaPackageName)' != '' AND Exists('$(OutputPath)$(IpaPackageName)')">$(OutputPath)$(IpaPackageName)</_ShinyMusicIpa>
+      <_ShinyMusicIpa Condition="'$(_ShinyMusicIpa)' == ''">$(PublishDir)$(AssemblyName).ipa</_ShinyMusicIpa>
+    </PropertyGroup>
+
+    <Warning
+      Text="Shiny.Music: IPA not found at '$(_ShinyMusicIpa)' — SwiftSupport injection skipped. You may see ITMS-90426 when submitting to App Store."
+      Condition="!Exists('$(_ShinyMusicIpa)')" />
+
+    <Exec
+      Command="bash &quot;$(MSBuildThisFileDirectory)inject-swift-support.sh&quot; &quot;$(_ShinyMusicIpa)&quot;"
+      Condition="Exists('$(_ShinyMusicIpa)')" />
+
+  </Target>
+</Project>

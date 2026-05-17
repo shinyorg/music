@@ -1,7 +1,7 @@
 using AVFoundation;
 using Foundation;
 using MediaPlayer;
-using MusicKit;
+using ShinyMusicKit;
 using UIKit;
 
 namespace Shiny.Music;
@@ -258,8 +258,7 @@ public class MediaLibrary : IMediaLibrary
     {
         try
         {
-            var sub = await MusicSubscription.GetCurrentAsync(CancellationToken.None);
-            return sub.CanPlayCatalogContent;
+            return await DotnetShinyMusicKit.HasStreamingSubscriptionAsync();
         }
         catch
         {
