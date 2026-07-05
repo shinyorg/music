@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>$(BaseTargetFramework)-android;$(BaseTargetFramework)-ios</TargetFrameworks>
+        <RootNamespace>Shiny.Spotify.Maui</RootNamespace>
+        <UseMaui>true</UseMaui>
+        <Description>Control the installed Spotify app from a single cross-platform interface via the native App Remote SDK</Description>
+        <PackageTags>spotify;appremote;music;android;ios;maui;shiny</PackageTags>
+        <!-- Not shipped yet: experimental, depends on the proprietary Spotify App Remote SDK. -->
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
+        <!-- Needed for MAUI Essentials (WebAuthenticator, Preferences, Platform). Kept private so this
+             library does not force its MAUI version onto the consuming app. -->
+        <PackageReference Include="Microsoft.Maui.Controls" PrivateAssets="all"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Remove="Platforms\**\*.cs"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+        <Compile Include="Platforms\Android\**\*.cs"/>
+        <ProjectReference Include="..\..\bindings\Shiny.Spotify.AppRemote.Android\Shiny.Spotify.AppRemote.Android.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+        <Compile Include="Platforms\Apple\**\*.cs"/>
+        <ProjectReference Include="..\..\bindings\Shiny.Spotify.AppRemote.iOS\Shiny.Spotify.AppRemote.iOS.csproj"/>
+    </ItemGroup>
+
+</Project>

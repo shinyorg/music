@@ -2,8 +2,8 @@
 
     <PropertyGroup>
         <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)</TargetFrameworks>
-        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-ios26.4</TargetFrameworks>
-        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-maccatalyst26.4</TargetFrameworks>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-ios26.5</TargetFrameworks>
+        <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-maccatalyst26.5</TargetFrameworks>
         <TargetFrameworks>$(TargetFrameworks);$(BaseTargetFramework)-android</TargetFrameworks>
         <RootNamespace>Shiny.Music</RootNamespace>
         <Description>Access the device music library on Android, iOS, and Mac Catalyst - permissions, metadata querying, playback, and file copy</Description>

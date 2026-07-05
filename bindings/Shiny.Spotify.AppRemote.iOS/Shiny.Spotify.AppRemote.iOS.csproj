@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk" InitialTargets="FetchSpotifyiOSSdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0-ios</TargetFramework>
+        <Nullable>disable</Nullable>
+        <ImplicitUsings>true</ImplicitUsings>
+        <IsBindingProject>true</IsBindingProject>
+        <RootNamespace>Shiny.Spotify.AppRemote.iOS</RootNamespace>
+        <AssemblyName>Shiny.Spotify.AppRemote.iOS</AssemblyName>
+        <IsPackable>false</IsPackable>
+        <!-- The API definition below is a hand-authored starting point. Regenerate/verify
+             with Objective Sharpie against SpotifyiOS.xcframework's headers if you extend it. -->
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ObjcBindingApiDefinition Include="ApiDefinition.cs" />
+        <ObjcBindingCoreSource Include="StructsAndEnums.cs" />
+    </ItemGroup>
+
+    <!--
+      Spotify iOS App Remote SDK (proprietary binary - NOT redistributed here).
+      The xcframework is fetched automatically at build time by the FetchSpotifyiOSSdk target
+      below; or run bindings/fetch-spotify-sdks.sh ios manually.
+    -->
+    <ItemGroup>
+        <NativeReference Include="SpotifyiOS.xcframework">
+            <Kind>Framework</Kind>
+            <ForceLoad>True</ForceLoad>
+            <SmartLink>True</SmartLink>
+            <Frameworks>UIKit Foundation CoreGraphics</Frameworks>
+        </NativeReference>
+    </ItemGroup>
+
+    <!-- Download the proprietary xcframework before the build consumes it, if it is missing. -->
+    <Target Name="FetchSpotifyiOSSdk"
+            Condition="!Exists('$(MSBuildThisFileDirectory)SpotifyiOS.xcframework')">
+        <Message Importance="high" Text="SpotifyiOS.xcframework missing - fetching via fetch-spotify-sdks.sh..." />
+        <Exec Command="bash &quot;$(MSBuildThisFileDirectory)..\fetch-spotify-sdks.sh&quot; ios" />
+    </Target>
+
+</Project>

@@ -109,6 +109,19 @@ public partial class PlayerViewModel(
         ResetPlayerUI();
     }
 
+    [RelayCommand]
+    async Task DuckAndAnnounce()
+    {
+        // Ducks the music, plays a spoken announcement over top, then restores on dispose.
+        // On iOS the TTS plays through the app audio session, so it is NOT ducked (plays at full volume).
+        await using (player.Duck(new DuckOptions { Level = 0.15 }))
+        {
+            await Microsoft.Maui.Media.TextToSpeech.Default.SpeakAsync(
+                "This is a test announcement playing over your music."
+            );
+        }
+    }
+
     // ── Seek ────────────────────────────────────────────────────
 
     public void SeekDragStarted() => this.isUserDragging = true;

@@ -115,6 +115,20 @@
                     </Button>
                 </HorizontalStackLayout>
 
+                <!-- Duck + Announce Button -->
+                <Button Text="🔊 Announce Over Music"
+                        FontSize="15"
+                        FontAttributes="Bold"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Tertiary}}"
+                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                        CornerRadius="12"
+                        HeightRequest="44"
+                        Command="{Binding DuckAndAnnounceCommand}">
+                    <Button.Shadow>
+                        <Shadow Brush="Black" Offset="0,2" Radius="6" Opacity="0.08" />
+                    </Button.Shadow>
+                </Button>
+
                 <!-- Lyrics Button -->
                 <Button Text="View Lyrics"
                         FontSize="15"

@@ -18,6 +18,7 @@
         <PackageReference Include="Microsoft.Maui.Controls"/>
         <PackageReference Include="Shiny.Maui.Controls"/>
         <PackageReference Include="Shiny.Maui.Shell"/>
+        <PackageReference Include="Shiny.Maui.Shell.UxDiversDialogs"/>
         <PackageReference Include="CommunityToolkit.Mvvm"/>
     </ItemGroup>
 
@@ -32,5 +33,11 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Shiny.Music\Shiny.Music.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Spotify.Maui\Shiny.Spotify.Maui.csproj"/>
     </ItemGroup>
+
+    <!-- Feeds the App Remote AAR's auth-redirect intent filter (musicsample://spotify-auth) -->
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+        <AndroidManifestPlaceholders>redirectSchemeName=musicsample;redirectHostName=spotify-auth</AndroidManifestPlaceholders>
+    </PropertyGroup>
 </Project>

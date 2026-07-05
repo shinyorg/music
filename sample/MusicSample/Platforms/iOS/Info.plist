@@ -21,5 +21,20 @@
         <string>This app needs access to your music library to browse and play your music.</string>
         <key>NSMicrophoneUsageDescription</key>
         <string>Used to identify songs playing nearby.</string>
+        <key>CFBundleURLTypes</key>
+        <array>
+            <dict>
+                <key>CFBundleURLName</key>
+                <string>org.shinyorg.musicsample.spotify</string>
+                <key>CFBundleURLSchemes</key>
+                <array>
+                    <string>musicsample</string>
+                </array>
+            </dict>
+        </array>
+        <key>LSApplicationQueriesSchemes</key>
+        <array>
+            <string>spotify</string>
+        </array>
     </dict>
 </plist>

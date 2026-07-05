@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk" InitialTargets="FetchSpotifyAndroidSdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0-android</TargetFramework>
+        <Nullable>disable</Nullable>
+        <ImplicitUsings>true</ImplicitUsings>
+        <IsBindingProject>true</IsBindingProject>
+        <RootNamespace>Shiny.Spotify.AppRemote.Android</RootNamespace>
+        <AssemblyName>Shiny.Spotify.AppRemote.Android</AssemblyName>
+        <!-- Binding generator noise from a 3rd-party AAR we don't control -->
+        <NoWarn>$(NoWarn);BG8605;BG8800;BG8700;CS0618;CA1416</NoWarn>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <!--
+      Spotify App Remote SDK (proprietary binary - NOT redistributed here).
+      The .aar is fetched automatically at build time by the FetchSpotifyAndroidSdk target
+      below; or run bindings/fetch-spotify-sdks.sh android manually.
+    -->
+    <ItemGroup>
+        <AndroidLibrary Include="Jars\spotify-app-remote-release-0.8.0.aar" Bind="true" />
+    </ItemGroup>
+
+    <!-- Download the proprietary AAR before the build consumes it, if it is missing. -->
+    <Target Name="FetchSpotifyAndroidSdk"
+            Condition="!Exists('$(MSBuildThisFileDirectory)Jars\spotify-app-remote-release-0.8.0.aar')">
+        <Message Importance="high" Text="Spotify Android App Remote SDK missing - fetching via fetch-spotify-sdks.sh..." />
+        <Exec Command="bash &quot;$(MSBuildThisFileDirectory)..\fetch-spotify-sdks.sh&quot; android" />
+    </Target>
+
+    <ItemGroup>
+        <TransformFile Include="Transforms\Metadata.xml" />
+    </ItemGroup>
+
+    <!-- App Remote's default protocol mapper uses gson at runtime -->
+    <ItemGroup>
+        <PackageReference Include="GoogleGson" />
+    </ItemGroup>
+
+</Project>

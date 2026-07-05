@@ -13,6 +13,9 @@
     <File Path="version.json" />
   </Folder>
   <Project Path="macios/ShinyMusicKit.Binding/ShinyMusicKit.Binding.csproj" />
+  <Project Path="bindings/Shiny.Spotify.AppRemote.Android/Shiny.Spotify.AppRemote.Android.csproj" />
+  <Project Path="bindings/Shiny.Spotify.AppRemote.iOS/Shiny.Spotify.AppRemote.iOS.csproj" />
   <Project Path="sample/MusicSample/MusicSample.csproj" />
   <Project Path="src/Shiny.Music/Shiny.Music.csproj" />
+  <Project Path="src/Shiny.Spotify.Maui/Shiny.Spotify.Maui.csproj" />
 </Solution>

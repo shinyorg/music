@@ -64,4 +64,25 @@ public interface IMusicPlayer : IDisposable
     /// Raised when the current track finishes playing naturally (not via <see cref="Stop"/>).
     /// </summary>
     event EventHandler? PlaybackCompleted;
+
+    /// <summary>
+    /// Gets a value indicating whether a duck scope is currently active.
+    /// </summary>
+    bool IsDucked { get; }
+
+    /// <summary>
+    /// Lowers the currently playing music so an announcement can be heard over top, until the returned scope is disposed.
+    /// Uses last-writer-wins semantics: a newer duck supersedes an older one; disposing the active scope restores full
+    /// volume, and disposing a superseded scope has no effect. Returns a no-op scope if nothing is currently playing.
+    /// </summary>
+    /// <remarks>
+    /// On Android this lowers this player's own track, honoring <see cref="DuckOptions.Level"/> and the fade durations.
+    /// On Apple this activates <c>AVAudioSession</c> with <c>DuckOthers</c>; the level and fades are advisory only, as the
+    /// OS controls duck depth and ramp. Audio played through the app audio session (an <c>AVAudioPlayer</c> announcement
+    /// file, or <c>AVSpeechSynthesizer</c> with <c>UsesApplicationAudioSession = true</c>) is not ducked and plays at full
+    /// volume over the ducked music; only other out-of-process audio is ducked.
+    /// </remarks>
+    /// <param name="options">Duck level and fade durations. When <c>null</c>, the <see cref="DuckOptions"/> defaults are used.</param>
+    /// <returns>A scope that restores the prior volume when disposed.</returns>
+    IAsyncDisposable Duck(DuckOptions? options = null);
 }

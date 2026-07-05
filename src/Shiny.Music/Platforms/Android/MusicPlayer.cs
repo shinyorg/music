@@ -9,8 +9,13 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
     MusicMetadata? currentTrack;
     PlaybackState state = PlaybackState.Stopped;
 
+    DuckScope? activeDuck;
+    CancellationTokenSource? fadeCts;
+    float currentVolume = 1f;
+
     public PlaybackState State => this.state;
     public MusicMetadata? CurrentTrack => this.currentTrack;
+    public bool IsDucked => this.activeDuck != null;
 
     public TimeSpan Position =>
         this.player != null ? TimeSpan.FromMilliseconds(this.player.CurrentPosition) : TimeSpan.Zero;
@@ -67,6 +72,11 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
 
     public void Stop()
     {
+        this.fadeCts?.Cancel();
+        this.fadeCts = null;
+        this.activeDuck = null;
+        this.currentVolume = 1f;
+
         if (this.player != null)
         {
             this.player.Completion -= this.OnPlaybackCompleted;
@@ -78,6 +88,63 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
         }
         this.currentTrack = null;
         this.SetState(PlaybackState.Stopped);
+    }
+
+    public IAsyncDisposable Duck(DuckOptions? options = null)
+    {
+        if (this.player == null || this.state != PlaybackState.Playing)
+            return DuckScope.NoOp;
+
+        var opts = options ?? new DuckOptions();
+        var level = (float)Math.Clamp(opts.Level, 0d, 1d);
+
+        var scope = new DuckScope(s => this.RestoreAsync(s, opts.FadeOut));
+        this.activeDuck = scope;
+        _ = this.FadeToAsync(level, opts.FadeIn);
+        return scope;
+    }
+
+    async ValueTask RestoreAsync(DuckScope scope, TimeSpan fadeOut)
+    {
+        // Last-writer-wins: only the active scope restores; a superseded scope is a no-op.
+        if (this.activeDuck != scope)
+            return;
+
+        this.activeDuck = null;
+        await this.FadeToAsync(1f, fadeOut).ConfigureAwait(false);
+    }
+
+    async ValueTask FadeToAsync(float target, TimeSpan duration)
+    {
+        this.fadeCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        this.fadeCts = cts;
+        var token = cts.Token;
+
+        var start = this.currentVolume;
+        var steps = duration <= TimeSpan.Zero ? 1 : Math.Max(1, (int)(duration.TotalMilliseconds / 15));
+
+        try
+        {
+            for (var i = 1; i <= steps; i++)
+            {
+                token.ThrowIfCancellationRequested();
+                var v = start + ((target - start) * (i / (float)steps));
+                this.SetVolume(v);
+                if (i < steps)
+                    await Task.Delay(15, token).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Superseded by a newer fade; leave volume where it landed.
+        }
+    }
+
+    void SetVolume(float volume)
+    {
+        this.currentVolume = volume;
+        this.player?.SetVolume(volume, volume);
     }
 
     public void Seek(TimeSpan position)

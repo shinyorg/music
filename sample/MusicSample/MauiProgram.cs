@@ -1,4 +1,5 @@
 using Shiny;
+using MusicSample.Spotify;
 
 namespace MusicSample;
 
@@ -9,7 +10,10 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
-            .UseShinyShell(x => x.AddGeneratedMaps())
+            .UseShinyShell(x => x
+                .AddGeneratedMaps()
+                .UseUxDiversDialogs()
+            )
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -17,8 +21,12 @@ public static class MauiProgram
             });
 
         builder.Services.AddShinyMusic();
+        
+        // this is static to hold the player state across tabs
         builder.Services.AddSingleton<PlayerViewModel>();
 
+        // Spotify Web API integration (search, playlists) + App Remote playback
+        builder.Services.AddShinySpotify();
         return builder.Build();
     }
 }

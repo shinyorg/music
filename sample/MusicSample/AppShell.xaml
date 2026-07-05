@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:shiny="clr-namespace:Shiny;assembly=Shiny.Maui.Shell"
     xmlns:local="clr-namespace:MusicSample"
+    xmlns:spotify="clr-namespace:MusicSample.Spotify"
     x:Class="MusicSample.AppShell"
     Title="Shiny Music">
 
@@ -11,5 +12,10 @@
         Title="Library"
         ContentTemplate="{DataTemplate local:MainPage}"
         Route="MainPage" />
+
+    <ShellContent
+        Title="Spotify"
+        ContentTemplate="{DataTemplate spotify:SpotifyPage}"
+        Route="SpotifyPage" />
 
 </shiny:ShinyShell>

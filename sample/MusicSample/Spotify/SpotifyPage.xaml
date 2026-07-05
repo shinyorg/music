@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:spotify="clr-namespace:MusicSample.Spotify"
+             xmlns:models="clr-namespace:Shiny.Spotify.Maui;assembly=Shiny.Spotify.Maui"
+             x:Class="MusicSample.Spotify.SpotifyPage"
+             x:DataType="spotify:SpotifyViewModel"
+             Shell.NavBarIsVisible="False">
+
+    <Grid>
+        <Grid RowDefinitions="Auto,*,Auto">
+
+            <!-- Header -->
+            <Border Grid.Row="0"
+                    StrokeThickness="0"
+                    BackgroundColor="#1DB954"
+                    Padding="16,16,16,14">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="0,0,16,16" />
+                </Border.StrokeShape>
+                <Grid ColumnDefinitions="*,Auto">
+                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                        <Label Text="Spotify" FontSize="22" FontAttributes="Bold" TextColor="White" />
+                        <Label Text="Search · Playlists · Playback" FontSize="12" TextColor="#DFFFE9" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1"
+                            Text="Disconnect"
+                            IsVisible="{Binding IsConnected}"
+                            Command="{Binding DisconnectCommand}"
+                            BackgroundColor="#0E7A38"
+                            TextColor="White"
+                            FontSize="12"
+                            CornerRadius="16"
+                            HeightRequest="34"
+                            Padding="14,0"
+                            VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
+            <!-- Connected content -->
+            <Grid Grid.Row="1"
+                  IsVisible="{Binding IsConnected}"
+                  RowDefinitions="Auto,Auto,*"
+                  Padding="16,12,16,0"
+                  RowSpacing="12">
+
+                <!-- Mode toggle -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <Button Text="Playlists"
+                            Command="{Binding SetModeCommand}"
+                            CommandParameter="Playlists"
+                            CornerRadius="18"
+                            HeightRequest="38"
+                            FontSize="14"
+                            BackgroundColor="{Binding PlaylistTabBackground}"
+                            TextColor="{Binding PlaylistTabText}" />
+                    <Button Grid.Column="1"
+                            Text="Search"
+                            Command="{Binding SetModeCommand}"
+                            CommandParameter="Search"
+                            CornerRadius="18"
+                            HeightRequest="38"
+                            FontSize="14"
+                            BackgroundColor="{Binding SearchTabBackground}"
+                            TextColor="{Binding SearchTabText}" />
+                </Grid>
+
+                <!-- Search bar -->
+                <Border Grid.Row="1"
+                        IsVisible="{Binding ShowPlaylists, Converter={StaticResource InvertBool}}"
+                        StrokeThickness="0"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                        Padding="8,0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <Entry x:Name="SearchEntry"
+                           Placeholder="Search Spotify..."
+                           Text="{Binding SearchQuery}"
+                           ReturnType="Search"
+                           ClearButtonVisibility="WhileEditing"
+                           Completed="OnSearchCompleted"
+                           BackgroundColor="Transparent"
+                           FontSize="15" />
+                </Border>
+
+                <!-- Playlists -->
+                <RefreshView Grid.Row="2"
+                             IsVisible="{Binding ShowPlaylists}"
+                             Command="{Binding RefreshPlaylistsCommand}"
+                             IsRefreshing="{Binding IsBusy}">
+                    <CollectionView ItemsSource="{Binding Playlists}"
+                                    SelectionMode="Single"
+                                    SelectionChanged="OnPlaylistSelected">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SpotifyPlaylist">
+                                <Border StrokeThickness="0"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                                        Margin="0,3" Padding="12,10">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="12" />
+                                    </Border.StrokeShape>
+                                    <Grid ColumnDefinitions="52,*,Auto" ColumnSpacing="12">
+                                        <Border StrokeThickness="0" WidthRequest="52" HeightRequest="52">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="8" />
+                                            </Border.StrokeShape>
+                                            <Image Source="{Binding ImageUrl}" Aspect="AspectFill" />
+                                        </Border>
+                                        <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                            <Label Text="{Binding Name}" FontAttributes="Bold" FontSize="15" LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding Owner}" FontSize="12"
+                                                   TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                                                   LineBreakMode="TailTruncation" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="2" Text="{Binding TrackCount, StringFormat='{0} ♪'}"
+                                               FontSize="12" VerticalOptions="Center"
+                                               TextColor="{StaticResource Gray400}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                        <CollectionView.EmptyView>
+                            <Label Text="No playlists" HorizontalOptions="Center" Margin="0,40"
+                                   TextColor="{StaticResource Gray400}" />
+                        </CollectionView.EmptyView>
+                    </CollectionView>
+                </RefreshView>
+
+                <!-- Tracks (search results / playlist contents) -->
+                <CollectionView Grid.Row="2"
+                                IsVisible="{Binding ShowPlaylists, Converter={StaticResource InvertBool}}"
+                                ItemsSource="{Binding Tracks}"
+                                SelectionMode="Single"
+                                SelectionChanged="OnTrackSelected">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:SpotifyTrack">
+                            <Border StrokeThickness="0"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                                    Margin="0,3" Padding="12,10">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="12" />
+                                </Border.StrokeShape>
+                                <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="12">
+                                    <Border StrokeThickness="0" WidthRequest="48" HeightRequest="48">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="8" />
+                                        </Border.StrokeShape>
+                                        <Image Source="{Binding ImageUrl}" Aspect="AspectFill" />
+                                    </Border>
+                                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                        <Label Text="{Binding Title}" FontAttributes="Bold" FontSize="15" LineBreakMode="TailTruncation" />
+                                        <Label FontSize="12" LineBreakMode="TailTruncation"
+                                               TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}">
+                                            <Label.FormattedText>
+                                                <FormattedString>
+                                                    <Span Text="{Binding Artist}" />
+                                                    <Span Text=" — " />
+                                                    <Span Text="{Binding Album}" />
+                                                </FormattedString>
+                                            </Label.FormattedText>
+                                        </Label>
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="2" Text="{Binding Duration, StringFormat='{0:mm\\:ss}'}"
+                                           FontSize="12" VerticalOptions="Center"
+                                           TextColor="{StaticResource Gray400}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                    <CollectionView.EmptyView>
+                        <Label Text="Search or pick a playlist" HorizontalOptions="Center" Margin="0,40"
+                               TextColor="{StaticResource Gray400}" />
+                    </CollectionView.EmptyView>
+                </CollectionView>
+            </Grid>
+
+            <!-- Not-connected splash -->
+            <VerticalStackLayout Grid.Row="1"
+                                 IsVisible="{Binding IsConnected, Converter={StaticResource InvertBool}}"
+                                 VerticalOptions="Center" HorizontalOptions="Center"
+                                 Spacing="16" Padding="32">
+                <Label Text="🎧" FontSize="56" HorizontalOptions="Center" />
+                <Label Text="Connect your Spotify account"
+                       FontSize="18" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                <Label Text="Search music, browse your playlists, and control playback. Premium required for playback."
+                       FontSize="13" HorizontalTextAlignment="Center"
+                       TextColor="{StaticResource Gray400}" />
+                <Button Text="Connect to Spotify"
+                        Command="{Binding ConnectCommand}"
+                        BackgroundColor="#1DB954" TextColor="White"
+                        CornerRadius="22" HeightRequest="48" Padding="28,0"
+                        FontAttributes="Bold" />
+            </VerticalStackLayout>
+
+            <!-- Transport bar -->
+            <Border Grid.Row="2"
+                    IsVisible="{Binding HasNowPlaying}"
+                    StrokeThickness="0"
+                    BackgroundColor="{AppThemeBinding Light=#1E1E2E, Dark=#12121C}"
+                    Padding="16,10">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
+                    <Label Grid.Column="0" Text="{Binding NowPlaying}"
+                           TextColor="White" FontSize="13" LineBreakMode="TailTruncation"
+                           VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="⏮" Command="{Binding PreviousCommand}"
+                            BackgroundColor="Transparent" TextColor="White" FontSize="20"
+                            WidthRequest="40" Padding="0" />
+                    <Button Grid.Column="2" Text="⏸" Command="{Binding PauseCommand}"
+                            BackgroundColor="Transparent" TextColor="White" FontSize="20"
+                            WidthRequest="40" Padding="0" />
+                    <Button Grid.Column="3" Text="▶" Command="{Binding ResumeCommand}"
+                            BackgroundColor="Transparent" TextColor="White" FontSize="18"
+                            WidthRequest="40" Padding="0" />
+                    <Button Grid.Column="4" Text="⏭" Command="{Binding NextCommand}"
+                            BackgroundColor="Transparent" TextColor="White" FontSize="20"
+                            WidthRequest="40" Padding="0" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Busy overlay -->
+        <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}"
+                           HorizontalOptions="Center" VerticalOptions="Center"
+                           HeightRequest="44" WidthRequest="44" Color="#1DB954" />
+    </Grid>
+</ContentPage>

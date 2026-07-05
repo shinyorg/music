@@ -1,3 +1,4 @@
+using AVFoundation;
 using Foundation;
 using MediaPlayer;
 
@@ -11,8 +12,11 @@ public class MusicPlayer : IMusicPlayer
     PlaybackState state = PlaybackState.Stopped;
     bool explicitStop;
 
+    DuckScope? activeDuck;
+
     public PlaybackState State => this.state;
     public MusicMetadata? CurrentTrack => this.currentTrack;
+    public bool IsDucked => this.activeDuck != null;
 
     public TimeSpan Position =>
         this.state != PlaybackState.Stopped
@@ -68,9 +72,54 @@ public class MusicPlayer : IMusicPlayer
     {
         this.explicitStop = true;
         this.StopObserving();
+        this.EndDuck();
         this.player.Stop();
         this.currentTrack = null;
         this.SetState(PlaybackState.Stopped);
+    }
+
+    public IAsyncDisposable Duck(DuckOptions? options = null)
+    {
+        if (this.state != PlaybackState.Playing)
+            return DuckScope.NoOp;
+
+        // The level/fade in DuckOptions are advisory on Apple: the OS controls duck depth and ramp.
+        // Anything played through the app audio session (an AVAudioPlayer announcement file, or an
+        // AVSpeechSynthesizer with UsesApplicationAudioSession = true) is NOT ducked and plays over top.
+        var session = AVAudioSession.SharedInstance();
+        var okCategory = session.SetCategory(AVAudioSessionCategory.Playback, AVAudioSessionCategoryOptions.DuckOthers, out _);
+        var okActive = session.SetActive(true, out _);
+        if (!okCategory || !okActive)
+        {
+            // Could not duck — undo any partial activation and return a no-op so the caller's flow isn't broken.
+            session.SetActive(false, AVAudioSessionSetActiveOptions.NotifyOthersOnDeactivation, out _);
+            return DuckScope.NoOp;
+        }
+
+        var scope = new DuckScope(this.RestoreAsync);
+        this.activeDuck = scope;
+        return scope;
+    }
+
+    ValueTask RestoreAsync(DuckScope scope)
+    {
+        // Last-writer-wins: only the active scope restores; a superseded scope is a no-op.
+        if (this.activeDuck != scope)
+            return default;
+
+        this.EndDuck();
+        return default;
+    }
+
+    void EndDuck()
+    {
+        if (this.activeDuck == null)
+            return;
+
+        this.activeDuck = null;
+        AVAudioSession
+            .SharedInstance()
+            .SetActive(false, AVAudioSessionSetActiveOptions.NotifyOthersOnDeactivation, out _);
     }
 
     public void Seek(TimeSpan position)

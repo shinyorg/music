@@ -401,3 +401,7 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Spotify App Remote SDK binaries (proprietary - fetch via bindings/fetch-spotify-sdks.sh)
+bindings/Spotify.AppRemote.Android/Jars/*.aar
+bindings/Spotify.AppRemote.iOS/SpotifyiOS.xcframework/
