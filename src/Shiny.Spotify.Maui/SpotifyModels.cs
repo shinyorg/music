@@ -112,6 +112,19 @@ class DevicesResponse
     [JsonPropertyName("devices")] public List<ApiDevice> Devices { get; set; } = [];
 }
 
+// ── Request bodies (serialized to Spotify) ───────────────────────────────────
+
+class PlayRequest
+{
+    [JsonPropertyName("uris")] public string[] Uris { get; set; } = [];
+}
+
+class TransferRequest
+{
+    [JsonPropertyName("device_ids")] public string[] DeviceIds { get; set; } = [];
+    [JsonPropertyName("play")] public bool Play { get; set; }
+}
+
 class ApiDevice
 {
     [JsonPropertyName("id")] public string? Id { get; set; }

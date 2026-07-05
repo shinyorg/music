@@ -1,10 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Maui.Authentication;
-using Microsoft.Maui.Storage;
 
-namespace Shiny.Spotify.Maui;
+namespace Shiny.Spotify.Maui.Infrastructure;
 
 /// <summary>
 /// Handles Spotify OAuth using the Authorization Code + PKCE flow (no client
@@ -123,7 +121,7 @@ public class SpotifyAuthService
         if (!resp.IsSuccessStatusCode)
             throw new InvalidOperationException($"Spotify token request failed ({(int)resp.StatusCode}): {json}");
 
-        var token = JsonSerializer.Deserialize<TokenResponse>(json)
+        var token = JsonSerializer.Deserialize(json, SpotifyJsonContext.Default.TokenResponse)
                     ?? throw new InvalidOperationException("Empty token response from Spotify.");
 
         accessToken = token.AccessToken;

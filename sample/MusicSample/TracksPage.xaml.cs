@@ -1,5 +1,4 @@
-using Shiny.Maui.Controls.FloatingPanel;
-using Shiny.Music;
+using Shiny.Maui.Controls;
 
 namespace MusicSample;
 

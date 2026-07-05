@@ -53,7 +53,7 @@ public class SpotifyRemoteApple : NSObject, ISpotifyRemote
     public Task SkipPreviousAsync() => Invoke(cb => Player.SkipToPrevious(cb));
     public Task SeekAsync(long positionMs) => Invoke(cb => Player.SeekToPosition((nint)positionMs, cb));
 
-    ISPTAppRemotePlayerAPI Player => appRemote?.PlayerAPI
+    SPTAppRemotePlayerAPI Player => appRemote?.PlayerAPI
         ?? throw new InvalidOperationException("Not connected to Spotify. Call ConnectAsync first.");
 
     /// <summary>Called from AppDelegate.OpenUrl for the musicsample://spotify-auth redirect.</summary>
@@ -105,7 +105,7 @@ public class SpotifyRemoteApple : NSObject, ISpotifyRemote
         => connectTcs?.TrySetException(new InvalidOperationException(
             error?.LocalizedDescription ?? "Could not connect to the Spotify app."));
 
-    void OnPlayerState(ISPTAppRemotePlayerState state)
+    void OnPlayerState(SPTAppRemotePlayerState state)
     {
         var track = state.Track;
         PlayerStateChanged?.Invoke(this, new RemotePlayerState(
@@ -140,6 +140,6 @@ public class SpotifyRemoteApple : NSObject, ISpotifyRemote
 
     class PlayerStateDelegate(SpotifyRemoteApple owner) : SPTAppRemotePlayerStateDelegate
     {
-        public override void PlayerStateDidChange(ISPTAppRemotePlayerState playerState) => owner.OnPlayerState(playerState);
+        public override void PlayerStateDidChange(SPTAppRemotePlayerState playerState) => owner.OnPlayerState(playerState);
     }
 }

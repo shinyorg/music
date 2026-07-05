@@ -4,6 +4,7 @@
         <TargetFrameworks>$(BaseTargetFramework)-android;$(BaseTargetFramework)-ios</TargetFrameworks>
         <RootNamespace>Shiny.Spotify.Maui</RootNamespace>
         <UseMaui>true</UseMaui>
+        <IsAotCompatible>true</IsAotCompatible>
         <Description>Control the installed Spotify app from a single cross-platform interface via the native App Remote SDK</Description>
         <PackageTags>spotify;appremote;music;android;ios;maui;shiny</PackageTags>
         <!-- Not shipped yet: experimental, depends on the proprietary Spotify App Remote SDK. -->

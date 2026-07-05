@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shiny.Spotify.Maui;
+using Shiny.Spotify.Maui.Infrastructure;
 
 namespace Shiny;
 
@@ -19,7 +20,7 @@ public static class SpotifyServiceCollectionExtensions
     public static IServiceCollection AddShinySpotify(this IServiceCollection services)
     {
         services.TryAddSingleton<SpotifyAuthService>();
-        services.TryAddSingleton<SpotifyClient>();
+        services.TryAddSingleton<ISpotifyClient, SpotifyClient>();
 #if ANDROID
         services.TryAddSingleton<ISpotifyRemote, SpotifyRemoteAndroid>();
 #elif IOS

@@ -3,13 +3,15 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 
-namespace Shiny.Spotify.Maui;
+namespace Shiny.Spotify.Maui.Infrastructure;
 
 /// <summary>
 /// Thin typed wrapper over the Spotify Web API covering the three things the
 /// sample needs: search, the user's playlists, and playback control.
+/// JSON uses the <see cref="SpotifyJsonContext"/> source generator (no reflection) so the
+/// library stays trim/AOT-safe.
 /// </summary>
-public class SpotifyClient(SpotifyAuthService auth)
+public class SpotifyClient(SpotifyAuthService auth) : ISpotifyClient
 {
     const string ApiBase = "https://api.spotify.com/v1";
     readonly HttpClient http = new();
@@ -23,7 +25,7 @@ public class SpotifyClient(SpotifyAuthService auth)
 
         var url = $"{ApiBase}/search?type=track&limit={limit}&q={Uri.EscapeDataString(query)}";
         var resp = await SendAsync(HttpMethod.Get, url);
-        var body = await resp.Content.ReadFromJsonAsync<SearchResponse>();
+        var body = await resp.Content.ReadFromJsonAsync(SpotifyJsonContext.Default.SearchResponse);
         return body?.Tracks.Items.Select(MapTrack).ToList() ?? [];
     }
 
@@ -37,7 +39,7 @@ public class SpotifyClient(SpotifyAuthService auth)
         while (url != null)
         {
             var resp = await SendAsync(HttpMethod.Get, url);
-            var page = await resp.Content.ReadFromJsonAsync<PagedResponse<ApiPlaylist>>();
+            var page = await resp.Content.ReadFromJsonAsync(SpotifyJsonContext.Default.PagedResponseApiPlaylist);
             if (page == null)
                 break;
 
@@ -64,7 +66,7 @@ public class SpotifyClient(SpotifyAuthService auth)
         while (url != null)
         {
             var resp = await SendAsync(HttpMethod.Get, url);
-            var page = await resp.Content.ReadFromJsonAsync<PagedResponse<PlaylistItem>>();
+            var page = await resp.Content.ReadFromJsonAsync(SpotifyJsonContext.Default.PagedResponsePlaylistItem);
             if (page == null)
                 break;
 
@@ -82,7 +84,7 @@ public class SpotifyClient(SpotifyAuthService auth)
     public async Task<IReadOnlyList<SpotifyDevice>> GetDevicesAsync()
     {
         var resp = await SendAsync(HttpMethod.Get, $"{ApiBase}/me/player/devices");
-        var body = await resp.Content.ReadFromJsonAsync<DevicesResponse>();
+        var body = await resp.Content.ReadFromJsonAsync(SpotifyJsonContext.Default.DevicesResponse);
         return body?.Devices
             .Where(d => d.Id != null)
             .Select(d => new SpotifyDevice(d.Id!, d.Name, d.Type, d.IsActive))
@@ -96,7 +98,8 @@ public class SpotifyClient(SpotifyAuthService auth)
         if (deviceId != null)
             url += $"?device_id={deviceId}";
 
-        var payload = JsonSerializer.Serialize(new { uris = new[] { trackUri } });
+        var payload = JsonSerializer.Serialize(
+            new PlayRequest { Uris = [trackUri] }, SpotifyJsonContext.Default.PlayRequest);
         await SendAsync(HttpMethod.Put, url,
             new StringContent(payload, Encoding.UTF8, "application/json"));
     }
@@ -109,7 +112,8 @@ public class SpotifyClient(SpotifyAuthService auth)
     /// <summary>Moves playback to the given device (e.g. the Spotify app on this phone).</summary>
     public Task TransferPlaybackAsync(string deviceId)
     {
-        var payload = JsonSerializer.Serialize(new { device_ids = new[] { deviceId }, play = false });
+        var payload = JsonSerializer.Serialize(
+            new TransferRequest { DeviceIds = [deviceId], Play = false }, SpotifyJsonContext.Default.TransferRequest);
         return SendVoidAsync(HttpMethod.Put, $"{ApiBase}/me/player",
             new StringContent(payload, Encoding.UTF8, "application/json"));
     }
@@ -156,19 +160,4 @@ public class SpotifyClient(SpotifyAuthService auth)
             .OrderBy(i => Math.Abs((i.Width ?? 640) - 300))
             .First().Url;
     }
-}
-
-public class SpotifyApiException(int statusCode, string detail)
-    : Exception(BuildMessage(statusCode, detail))
-{
-    public int StatusCode { get; } = statusCode;
-
-    static string BuildMessage(int status, string detail) => status switch
-    {
-        401 => "Spotify session expired. Please sign in again.",
-        403 => "Spotify Premium is required for playback control.",
-        404 => "No active Spotify device found. Open Spotify and start playing something, then try again.",
-        429 => "Spotify rate limit hit. Please wait a moment.",
-        _ => $"Spotify API error ({status}): {detail}"
-    };
 }

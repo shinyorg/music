@@ -6,8 +6,20 @@ using ObjCRuntime;
 // Hand-authored binding for the subset of the Spotify iOS App Remote SDK used by
 // ISpotifyRemote (connect, play/pause/resume/skip/seek, player-state updates).
 //
-// This is a STARTING POINT. If you extend it, the reliable path is to run
-// Objective Sharpie against the SDK headers:
+// NOTE: the SDK's data/delegate types are ObjC @protocols, bound here as [Protocol, Model]
+// and referenced by their PLAIN name (SPTAppRemoteTrack), never the I-prefixed interface.
+// Two constraints force this shape:
+//   * The binding tool's API-definition pre-compile only sees the types as declared and does
+//     NOT have the generator-produced I<Protocol> interfaces, so the "pure protocol" style
+//     (referencing ISPTAppRemoteTrack) fails to compile.
+//   * Binding them as plain [BaseType(NSObject)] classes compiles, but the static registrar
+//     then demands a native _OBJC_CLASS_$_SPTAppRemoteTrack symbol at link time — which does
+//     not exist for a @protocol — so device builds fail with "Undefined symbols".
+// [Protocol, Model] generates a concrete wrapper class (resolves by plain name in both compile
+// passes) that is NOT a native-class wrapper (no _OBJC_CLASS_$_ reference), so it links too.
+// We only consume/sub-class these objects, so a model binding is sufficient.
+//
+// If you extend it, run Objective Sharpie against the SDK headers:
 //   sharpie bind --sdk=iphoneos --output=. \
 //     --namespace=Shiny.Spotify.AppRemote.iOS \
 //     SpotifyiOS.xcframework/ios-arm64/SpotifyiOS.framework/Headers/SpotifyiOS.h
@@ -55,7 +67,7 @@ interface SPTAppRemote
 
     [Wrap("WeakDelegate")]
     [NullAllowed]
-    ISPTAppRemoteDelegate Delegate { get; set; }
+    SPTAppRemoteDelegate Delegate { get; set; }
 
     [NullAllowed, Export("delegate", ArgumentSemantic.Weak)]
     NSObject WeakDelegate { get; set; }
@@ -65,7 +77,7 @@ interface SPTAppRemote
 
     [Export("playerAPI")]
     [NullAllowed]
-    ISPTAppRemotePlayerAPI PlayerAPI { get; }
+    SPTAppRemotePlayerAPI PlayerAPI { get; }
 
     [Export("connect")]
     void Connect();
@@ -87,26 +99,23 @@ interface SPTAppRemote
 [BaseType(typeof(NSObject))]
 interface SPTAppRemoteDelegate
 {
-    [Abstract]
     [Export("appRemoteDidEstablishConnection:")]
     void DidEstablishConnection(SPTAppRemote appRemote);
 
-    [Abstract]
     [Export("appRemote:didFailConnectionAttemptWithError:")]
     void DidFailConnectionAttempt(SPTAppRemote appRemote, [NullAllowed] NSError error);
 
-    [Abstract]
     [Export("appRemote:didDisconnectWithError:")]
     void DidDisconnect(SPTAppRemote appRemote, [NullAllowed] NSError error);
 }
 
-[Protocol]
+[Protocol, Model]
 [BaseType(typeof(NSObject))]
 interface SPTAppRemotePlayerAPI
 {
     [Wrap("WeakDelegate")]
     [NullAllowed]
-    ISPTAppRemotePlayerStateDelegate Delegate { get; set; }
+    SPTAppRemotePlayerStateDelegate Delegate { get; set; }
 
     [NullAllowed, Export("delegate", ArgumentSemantic.Weak)]
     NSObject WeakDelegate { get; set; }
@@ -140,75 +149,62 @@ interface SPTAppRemotePlayerAPI
 [BaseType(typeof(NSObject))]
 interface SPTAppRemotePlayerStateDelegate
 {
-    [Abstract]
     [Export("playerStateDidChange:")]
-    void PlayerStateDidChange(ISPTAppRemotePlayerState playerState);
+    void PlayerStateDidChange(SPTAppRemotePlayerState playerState);
 }
 
-[Protocol]
+[Protocol, Model]
 [BaseType(typeof(NSObject))]
 interface SPTAppRemotePlayerState
 {
-    [Abstract]
     [Export("track")]
-    ISPTAppRemoteTrack Track { get; }
+    SPTAppRemoteTrack Track { get; }
 
-    [Abstract]
     [Export("playbackPosition")]
     nint PlaybackPosition { get; }
 
-    [Abstract]
     [Export("paused")]
     bool Paused { [Bind("isPaused")] get; }
 }
 
-[Protocol]
+[Protocol, Model]
 [BaseType(typeof(NSObject))]
 interface SPTAppRemoteTrack
 {
-    [Abstract]
     [Export("name")]
     string Name { get; }
 
-    [Abstract]
     [Export("URI")]
     string Uri { get; }
 
-    [Abstract]
     [Export("artist")]
-    ISPTAppRemoteArtist Artist { get; }
+    SPTAppRemoteArtist Artist { get; }
 
-    [Abstract]
     [Export("album")]
-    ISPTAppRemoteAlbum Album { get; }
+    SPTAppRemoteAlbum Album { get; }
 
-    [Abstract]
     [Export("duration")]
     nuint Duration { get; }
 }
 
-[Protocol]
+[Protocol, Model]
 [BaseType(typeof(NSObject))]
 interface SPTAppRemoteArtist
 {
-    [Abstract]
     [Export("name")]
     string Name { get; }
 
-    [Abstract]
     [Export("URI")]
     string Uri { get; }
 }
 
-[Protocol]
+[Protocol, Model]
 [BaseType(typeof(NSObject))]
 interface SPTAppRemoteAlbum
 {
-    [Abstract]
     [Export("name")]
     string Name { get; }
 
-    [Abstract]
     [Export("URI")]
     string Uri { get; }
 }

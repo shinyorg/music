@@ -8,7 +8,7 @@ namespace MusicSample.Spotify;
 
 [ShellMap<SpotifyPage>(registerRoute: false)]
 public partial class SpotifyViewModel(
-    SpotifyClient client,
+    ISpotifyClient client,
     SpotifyAuthService auth,
     ISpotifyRemote remote,
     IDialogs dialogs
