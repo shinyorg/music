@@ -328,6 +328,87 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
         return await WithPlayCounts(tracks);
     }
 
+    public async Task<MusicMetadata?> GetTrackByIdAsync(string trackId)
+    {
+        var track = await Task.Run(() =>
+        {
+            if (!long.TryParse(trackId, out var id))
+                return (MusicMetadata?)null;
+
+            var genreMap = BuildGenreMap();
+            var selection = MediaStore.Audio.Media.InterfaceConsts.Id + " = ? AND " +
+                MediaStore.Audio.Media.InterfaceConsts.IsMusic + " != 0";
+
+            using var cursor = Resolver.Query(
+                MediaStore.Audio.Media.ExternalContentUri!,
+                AudioProjection,
+                selection,
+                new[] { id.ToString() },
+                null
+            );
+
+            if (cursor == null || !cursor.MoveToFirst())
+                return (MusicMetadata?)null;
+
+            return ReadTrack(cursor, genreMap);
+        });
+
+        if (track == null)
+            return null;
+
+        var withCounts = await WithPlayCounts([ track ]);
+        return withCounts[0];
+    }
+
+    public async Task<IReadOnlyList<MusicMetadata>> GetTracksByIdsAsync(IEnumerable<string> trackIds)
+    {
+        var ids = trackIds
+            .Select(t => long.TryParse(t, out var v) ? (long?)v : null)
+            .Where(v => v.HasValue)
+            .Select(v => v!.Value)
+            .Distinct()
+            .ToList();
+
+        if (ids.Count == 0)
+            return Array.Empty<MusicMetadata>();
+
+        var byId = await Task.Run(() =>
+        {
+            var genreMap = BuildGenreMap();
+            var placeholders = string.Join(",", ids.Select(_ => "?"));
+            var selection = MediaStore.Audio.Media.InterfaceConsts.Id + " IN (" + placeholders + ") AND " +
+                MediaStore.Audio.Media.InterfaceConsts.IsMusic + " != 0";
+            var selectionArgs = ids.Select(i => i.ToString()).ToArray();
+
+            var map = new Dictionary<string, MusicMetadata>();
+            using var cursor = Resolver.Query(
+                MediaStore.Audio.Media.ExternalContentUri!,
+                AudioProjection,
+                selection,
+                selectionArgs,
+                null
+            );
+            if (cursor != null)
+            {
+                while (cursor.MoveToNext())
+                {
+                    var track = ReadTrack(cursor, genreMap);
+                    map[track.Id] = track;
+                }
+            }
+            return map;
+        });
+
+        var ordered = new List<MusicMetadata>();
+        foreach (var id in ids)
+        {
+            if (byId.TryGetValue(id.ToString(), out var track))
+                ordered.Add(track);
+        }
+
+        return await WithPlayCounts(ordered);
+    }
+
     public Task<IReadOnlyList<GroupedCount<string>>> GetGenresAsync(MusicFilter? filter = null)
     {
         return Task.Run(() =>
@@ -516,6 +597,49 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
             .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
             .ToList()
             .AsReadOnly();
+    }
+
+    public async Task<PlaylistInfo?> GetPlaylistByIdAsync(string playlistId)
+    {
+        if (CustomPlaylistStore.IsCustomPlaylistId(playlistId))
+        {
+            var custom = await this.customPlaylists.GetByIdAsync(playlistId);
+            return custom == null ? null : new PlaylistInfo(custom.Id, custom.Name, custom.Tracks.Length);
+        }
+
+        return await Task.Run(() =>
+        {
+            if (!long.TryParse(playlistId, out var id))
+                return (PlaylistInfo?)null;
+
+            using var cursor = Resolver.Query(
+                MediaStore.Audio.Playlists.ExternalContentUri!,
+                new[]
+                {
+                    MediaStore.Audio.Playlists.InterfaceConsts.Id,
+                    MediaStore.Audio.Playlists.InterfaceConsts.Name
+                },
+                MediaStore.Audio.Playlists.InterfaceConsts.Id + " = ?",
+                new[] { id.ToString() },
+                null
+            );
+
+            if (cursor == null || !cursor.MoveToFirst())
+                return (PlaylistInfo?)null;
+
+            var name = cursor.GetString(1);
+            if (string.IsNullOrWhiteSpace(name))
+                return (PlaylistInfo?)null;
+
+            var membersUri = MediaStore.Audio.Playlists.Members.GetContentUri("external", id)!;
+            using var membersCursor = Resolver.Query(
+                membersUri,
+                [ MediaStore.Audio.Playlists.Members.AudioId ],
+                null, null, null
+            );
+            var count = membersCursor?.Count ?? 0;
+            return (PlaylistInfo?)new PlaylistInfo(id.ToString(), name, count);
+        });
     }
 
     public async Task<IReadOnlyList<MusicMetadata>> GetPlaylistTracksAsync(string playlistId)

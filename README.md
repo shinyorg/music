@@ -83,6 +83,11 @@ public class MyPage
         // 11. Get tracks in a playlist
         var playlistTracks = await _library.GetPlaylistTracksAsync(playlists[0].Id);
 
+        // 11b. Look up a single track / playlist by id (e.g. restoring saved state)
+        var one = await _library.GetTrackByIdAsync(tracks[0].Id);
+        var many = await _library.GetTracksByIdsAsync(new[] { tracks[0].Id, tracks[1].Id });
+        var playlist = await _library.GetPlaylistByIdAsync(playlists[0].Id);
+
         // 12. Create a playlist and add tracks
         var newPlaylist = await _library.CreatePlaylistAsync("Favorites");
         await _library.AddTrackToPlaylistAsync(newPlaylist.Id, tracks[0]);
@@ -161,10 +166,13 @@ Add these to your `AndroidManifest.xml`:
 | `GetAllTracksAsync()` | Returns all music tracks on the device |
 | `SearchTracksAsync(query)` | Searches tracks by title, artist, or album |
 | `GetTracksAsync(filter)` | Returns tracks matching a `MusicFilter` (genre, year, decade, search -- combined with AND logic) |
+| `GetTrackByIdAsync(trackId)` | Returns a single track by its identifier, or `null` if not found |
+| `GetTracksByIdsAsync(trackIds)` | Returns multiple tracks by identifier in a single query, ordered to match the input (missing IDs omitted) |
 | `GetGenresAsync(filter?)` | Returns distinct genres with track counts; optionally filtered by year/decade/search |
 | `GetYearsAsync(filter?)` | Returns distinct release years with track counts; optionally filtered by genre/decade/search |
 | `GetDecadesAsync(filter?)` | Returns distinct decades with track counts; optionally filtered by genre/year/search |
 | `GetPlaylistsAsync()` | Returns all playlists with song counts, sorted alphabetically |
+| `GetPlaylistByIdAsync(playlistId)` | Returns a single playlist (with song count) by its identifier, or `null` if not found |
 | `GetPlaylistTracksAsync(playlistId)` | Returns all tracks in the specified playlist, in playlist order |
 | `GetAlbumArtPathAsync(trackId)` | Returns a file path to album artwork for the track, or `null` |
 | `CopyTrackAsync(track, destPath)` | Copies a track to the specified path; returns `false` if not possible |

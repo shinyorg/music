@@ -35,7 +35,10 @@ triggers:
   - GetYearsAsync
   - GetDecadesAsync
   - GetTracksAsync
+  - GetTrackByIdAsync
+  - GetTracksByIdsAsync
   - GetPlaylistsAsync
+  - GetPlaylistByIdAsync
   - GetPlaylistTracksAsync
   - GetAlbumArtPathAsync
   - GetLyricsAsync
@@ -211,6 +214,22 @@ Task<IReadOnlyList<MusicMetadata>> GetTracksAsync(MusicFilter filter);
 
 Returns tracks matching the specified filter criteria. All non-null filter properties are combined with AND logic. On Android, genre filtering queries via `MediaStore.Audio.Genres.Members`; year/decade/search use SQL WHERE clauses. On Apple platforms, uses `MPMediaQuery.SongsQuery` with client-side LINQ filtering.
 
+#### GetTrackByIdAsync
+
+```csharp
+Task<MusicMetadata?> GetTrackByIdAsync(string trackId);
+```
+
+Returns a single track by its platform-specific identifier (`MusicMetadata.Id`), or `null` if no track with that identifier exists. On Android, queries `MediaStore.Audio.Media` with an `Id = ?` selection. On Apple platforms, looks up the `MPMediaItem` with the matching persistent ID. Useful for restoring a previously-saved "now playing" track without loading the whole library.
+
+#### GetTracksByIdsAsync
+
+```csharp
+Task<IReadOnlyList<MusicMetadata>> GetTracksByIdsAsync(IEnumerable<string> trackIds);
+```
+
+Returns multiple tracks by identifier in a single query. Results are ordered to match the supplied `trackIds`; duplicate identifiers are collapsed and identifiers that do not resolve to a track are omitted. On Android, issues one `Id IN (...)` query; on Apple platforms, makes a single pass over `MPMediaQuery.SongsQuery`. Prefer this over calling `GetTrackByIdAsync` in a loop when hydrating a saved list of track IDs (e.g., a queue or favorites list).
+
 #### GetPlaylistsAsync
 
 ```csharp
@@ -218,6 +237,14 @@ Task<IReadOnlyList<PlaylistInfo>> GetPlaylistsAsync();
 ```
 
 Returns all playlists with their song counts, sorted alphabetically by name. On Android, merges MediaStore playlists with locally-stored custom playlists. On Apple platforms, reads system playlists from `MPMediaQuery.PlaylistsQuery` and merges with locally-stored custom playlists. Permission must be granted first.
+
+#### GetPlaylistByIdAsync
+
+```csharp
+Task<PlaylistInfo?> GetPlaylistByIdAsync(string playlistId);
+```
+
+Returns a single playlist (with its song count) by identifier, or `null` if not found. Resolves both device playlists and locally-stored custom playlists (`custom:` prefixed IDs). On Android, reads device playlists from `MediaStore.Audio.Playlists`; on Apple platforms from `MPMediaQuery.PlaylistsQuery`. Use this to re-resolve a saved playlist's current name and count without enumerating every playlist via `GetPlaylistsAsync`.
 
 #### GetPlaylistTracksAsync
 
@@ -506,6 +533,7 @@ On Android, this always returns `false`.
 8. **Use `MusicFilter` for combined queries** — filter tracks by genre + year/decade in a single call rather than filtering in memory.
 9. **Use grouping methods with filters for cross-queries** — e.g., `GetGenresAsync(new MusicFilter { Decade = 1990 })` to find genres represented in the 90s.
 10. **Use `GetPlaylistsAsync` and `GetPlaylistTracksAsync`** — browse playlists and retrieve their contents in playlist order.
+14. **Rehydrate saved IDs with the by-id getters** — when restoring persisted state (now-playing track, a saved queue, a favorited playlist), use `GetTrackByIdAsync` / `GetPlaylistByIdAsync` rather than scanning `GetAllTracksAsync`/`GetPlaylistsAsync`. For a list of track IDs, use `GetTracksByIdsAsync` (single query) instead of a loop of `GetTrackByIdAsync`. All three return `null`/omit entries for IDs that no longer resolve — always null-check.
 11. **Use `GetAlbumArtPathAsync`** — retrieve album artwork as a cached file path for display in the UI.
 12. **Use `ILyricsProvider.GetLyricsAsync`** — fetch lyrics for a track. Check `SyncedLyrics` for timed LRC format, fall back to `PlainLyrics` for plain text.
 13. **Playlist CRUD is on `IMediaLibrary`** — use `CreatePlaylistAsync`, `RemovePlaylistAsync`, `AddTrackToPlaylistAsync`, `RemoveTrackFromPlaylistAsync`. On both platforms these manage locally-stored custom playlists.

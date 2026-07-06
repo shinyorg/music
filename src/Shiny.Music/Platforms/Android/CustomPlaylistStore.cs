@@ -67,6 +67,20 @@ class CustomPlaylistStore
         }
     }
 
+    public async Task<CustomPlaylist?> GetByIdAsync(string playlistId)
+    {
+        await this.sync.WaitAsync();
+        try
+        {
+            var playlists = await ReadFileAsync();
+            return playlists.FirstOrDefault(p => p.Id == playlistId);
+        }
+        finally
+        {
+            this.sync.Release();
+        }
+    }
+
     public async Task<MusicMetadata[]> GetTracksAsync(string playlistId)
     {
         await this.sync.WaitAsync();

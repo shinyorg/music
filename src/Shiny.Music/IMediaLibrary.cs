@@ -43,6 +43,27 @@ public interface IMediaLibrary
     Task<IReadOnlyList<MusicMetadata>> GetTracksAsync(MusicFilter filter);
 
     /// <summary>
+    /// Gets a single track by its platform-specific identifier.
+    /// On Android, this queries <c>MediaStore.Audio.Media</c> for the matching row ID.
+    /// On Apple platforms, this looks up the <c>MPMediaItem</c> with the matching persistent ID.
+    /// Permission must be granted before calling this method.
+    /// </summary>
+    /// <param name="trackId">The platform-specific track identifier from <see cref="MusicMetadata.Id"/>.</param>
+    /// <returns>The matching <see cref="MusicMetadata"/>, or <c>null</c> if no track with that identifier exists.</returns>
+    Task<MusicMetadata?> GetTrackByIdAsync(string trackId);
+
+    /// <summary>
+    /// Gets multiple tracks by their platform-specific identifiers in a single query. Results are returned in the
+    /// same order as the supplied identifiers; identifiers that do not resolve to a track are omitted. Duplicate
+    /// identifiers are collapsed. On Android, this issues a single <c>Id IN (...)</c> query; on Apple platforms it
+    /// makes a single pass over the songs query.
+    /// Permission must be granted before calling this method.
+    /// </summary>
+    /// <param name="trackIds">The platform-specific track identifiers from <see cref="MusicMetadata.Id"/>.</param>
+    /// <returns>A read-only list of the resolved <see cref="MusicMetadata"/>, ordered to match <paramref name="trackIds"/>.</returns>
+    Task<IReadOnlyList<MusicMetadata>> GetTracksByIdsAsync(IEnumerable<string> trackIds);
+
+    /// <summary>
     /// Copies a music file to the specified destination path.
     /// On Android, this reads from the ContentResolver input stream.
     /// On Apple platforms, this uses <c>AVAssetExportSession</c> to export the track as M4A.
@@ -92,6 +113,17 @@ public interface IMediaLibrary
     /// </summary>
     /// <returns>A read-only list of <see cref="PlaylistInfo"/> for every playlist on the device, sorted alphabetically.</returns>
     Task<IReadOnlyList<PlaylistInfo>> GetPlaylistsAsync();
+
+    /// <summary>
+    /// Gets a single playlist by its identifier, including its song count. Resolves both device playlists and
+    /// locally-stored custom playlists (identifiers with a <c>custom:</c> prefix).
+    /// On Android, device playlists are read from <c>MediaStore.Audio.Playlists</c>; on Apple platforms from
+    /// <c>MPMediaQuery.PlaylistsQuery</c>.
+    /// Permission must be granted before calling this method for device playlists.
+    /// </summary>
+    /// <param name="playlistId">The playlist identifier returned by <see cref="GetPlaylistsAsync"/> or <see cref="CreatePlaylistAsync"/>.</param>
+    /// <returns>The matching <see cref="PlaylistInfo"/>, or <c>null</c> if no playlist with that identifier exists.</returns>
+    Task<PlaylistInfo?> GetPlaylistByIdAsync(string playlistId);
 
     /// <summary>
     /// Gets all tracks in the specified playlist.

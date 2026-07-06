@@ -65,6 +65,51 @@ public class MediaLibrary : IMediaLibrary
         });
     }
 
+    public Task<MusicMetadata?> GetTrackByIdAsync(string trackId)
+    {
+        return Task.Run(() =>
+        {
+            if (!ulong.TryParse(trackId, out var pid))
+                return (MusicMetadata?)null;
+
+            var query = MPMediaQuery.SongsQuery;
+            var item = query.Items?.FirstOrDefault(i => i.PersistentID == pid);
+            return item == null ? (MusicMetadata?)null : ToMusicMetadata(item);
+        });
+    }
+
+    public Task<IReadOnlyList<MusicMetadata>> GetTracksByIdsAsync(IEnumerable<string> trackIds)
+    {
+        var pidOrder = trackIds
+            .Select(t => ulong.TryParse(t, out var v) ? (ulong?)v : null)
+            .Where(v => v.HasValue)
+            .Select(v => v!.Value)
+            .Distinct()
+            .ToList();
+
+        return Task.Run(() =>
+        {
+            if (pidOrder.Count == 0)
+                return (IReadOnlyList<MusicMetadata>)Array.Empty<MusicMetadata>();
+
+            var wanted = new HashSet<ulong>(pidOrder);
+            var query = MPMediaQuery.SongsQuery;
+            var found = (query.Items ?? [])
+                .Where(i => wanted.Contains(i.PersistentID))
+                .GroupBy(i => i.PersistentID)
+                .ToDictionary(g => g.Key, g => ToMusicMetadata(g.First()));
+
+            var ordered = new List<MusicMetadata>();
+            foreach (var pid in pidOrder)
+            {
+                if (found.TryGetValue(pid, out var track))
+                    ordered.Add(track);
+            }
+
+            return (IReadOnlyList<MusicMetadata>)ordered.AsReadOnly();
+        });
+    }
+
     public Task<IReadOnlyList<GroupedCount<string>>> GetGenresAsync(MusicFilter? filter = null)
     {
         return Task.Run(() =>
@@ -148,6 +193,36 @@ public class MediaLibrary : IMediaLibrary
             .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
             .ToList()
             .AsReadOnly();
+    }
+
+    public async Task<PlaylistInfo?> GetPlaylistByIdAsync(string playlistId)
+    {
+        if (CustomPlaylistStore.IsCustomPlaylistId(playlistId))
+        {
+            var custom = await customPlaylists.GetByIdAsync(playlistId);
+            return custom == null ? null : new PlaylistInfo(custom.Id, custom.Name, custom.Tracks.Length);
+        }
+
+        return await Task.Run(() =>
+        {
+            if (!ulong.TryParse(playlistId, out var pid))
+                return (PlaylistInfo?)null;
+
+            var query = MPMediaQuery.PlaylistsQuery;
+            var playlist = query.Collections?
+                .OfType<MPMediaPlaylist>()
+                .FirstOrDefault(p => p.PersistentID == pid);
+
+            var name = playlist?.Name;
+            if (playlist == null || string.IsNullOrWhiteSpace(name))
+                return (PlaylistInfo?)null;
+
+            return (PlaylistInfo?)new PlaylistInfo(
+                playlist.PersistentID.ToString(),
+                name,
+                (int)playlist.Count
+            );
+        });
     }
 
     public async Task<IReadOnlyList<MusicMetadata>> GetPlaylistTracksAsync(string playlistId)
