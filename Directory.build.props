@@ -34,6 +34,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="Nerdbank.GitVersioning">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+        </PackageReference>
         <None Include="$(MSBuildThisFileDirectory)nuget.png" Pack="true" PackagePath="icon.png"/>
         <None Include="$(MSBuildThisFileDirectory)nuget.txt" Pack="true" PackagePath="readme.txt"/>
         <None Include="$(MSBuildThisFileDirectory)readme.md" Pack="true" PackagePath="\"/>

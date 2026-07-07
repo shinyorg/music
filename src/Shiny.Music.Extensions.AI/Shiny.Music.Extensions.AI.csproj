@@ -10,10 +10,6 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
-        <PackageReference Include="Nerdbank.GitVersioning">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-        </PackageReference>
         <ProjectReference Include="..\Shiny.Music\Shiny.Music.csproj" />
     </ItemGroup>
 
