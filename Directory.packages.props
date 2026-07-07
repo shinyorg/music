@@ -4,8 +4,8 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageVersion Include="Shiny.Maui.Controls" Version="1.0.1-beta-0142"/>
-        <PackageVersion Include="Shiny.Maui.Shell" Version="6.3.1"/>
-        <PackageVersion Include="Shiny.Maui.Shell.UxDiversDialogs" Version="6.3.1"/>
+        <PackageVersion Include="Shiny.Maui.Shell" Version="6.3.2"/>
+        <PackageVersion Include="Shiny.Maui.Shell.UxDiversDialogs" Version="6.3.2"/>
         <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2"/>
     </ItemGroup>
     <ItemGroup>
