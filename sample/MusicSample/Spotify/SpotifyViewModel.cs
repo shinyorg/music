@@ -9,7 +9,6 @@ namespace MusicSample.Spotify;
 [ShellMap<SpotifyPage>(registerRoute: false)]
 public partial class SpotifyViewModel(
     ISpotifyClient client,
-    SpotifyAuthService auth,
     ISpotifyRemote remote,
     IDialogs dialogs
 ) : ObservableObject, IPageLifecycleAware
@@ -55,8 +54,8 @@ public partial class SpotifyViewModel(
         if (!IsConfigured)
             return;
 
-        await auth.RestoreAsync();
-        IsConnected = auth.IsAuthenticated;
+        await client.RestoreAsync();
+        IsConnected = client.IsAuthenticated;
         if (IsConnected && Playlists.Count == 0)
             await LoadPlaylists();
     }
@@ -91,8 +90,8 @@ public partial class SpotifyViewModel(
 
         await Run(async () =>
         {
-            await auth.LoginAsync();
-            IsConnected = auth.IsAuthenticated;
+            await client.LoginAsync();
+            IsConnected = client.IsAuthenticated;
             if (IsConnected)
                 await LoadPlaylists();
         });
@@ -102,7 +101,7 @@ public partial class SpotifyViewModel(
     async Task Disconnect()
     {
         remote.Disconnect();
-        await auth.LogoutAsync();
+        await client.LogoutAsync();
         IsConnected = false;
         Playlists.Clear();
         Tracks.Clear();

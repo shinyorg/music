@@ -1,11 +1,27 @@
 namespace Shiny.Spotify.Maui;
 
 /// <summary>
-/// Typed wrapper over the Spotify Web API: search, the user's playlists, and playback control.
-/// Abstracted so it can be mocked/faked in unit tests.
+/// Typed wrapper over the Spotify Web API: authentication (OAuth PKCE), search, the user's
+/// playlists, and playback control. Abstracted so it can be mocked/faked in unit tests.
 /// </summary>
 public interface ISpotifyClient
 {
+    // ── Authentication (OAuth Authorization Code + PKCE) ─────────────────────────
+
+    /// <summary>Whether a Spotify session is available (a refresh token is held).</summary>
+    bool IsAuthenticated { get; }
+
+    /// <summary>Loads any previously saved tokens from secure storage. Call once at startup.</summary>
+    Task RestoreAsync();
+
+    /// <summary>Runs the interactive login flow in a system web view and persists the tokens.</summary>
+    Task LoginAsync();
+
+    /// <summary>Clears the current session and removes persisted tokens.</summary>
+    Task LogoutAsync();
+
+    // ── Catalog & Playback ───────────────────────────────────────────────────────
+
     /// <summary>Searches the Spotify catalog for tracks matching <paramref name="query"/>.</summary>
     Task<IReadOnlyList<SpotifyTrack>> SearchTracksAsync(string query, int limit = 25);
 

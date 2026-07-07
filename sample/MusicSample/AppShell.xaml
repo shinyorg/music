@@ -14,6 +14,11 @@
         Route="MainPage" />
 
     <ShellContent
+        Title="Ducking"
+        ContentTemplate="{DataTemplate local:DuckTestPage}"
+        Route="DuckTestPage" />
+
+    <ShellContent
         Title="Spotify"
         ContentTemplate="{DataTemplate spotify:SpotifyPage}"
         Route="SpotifyPage" />
