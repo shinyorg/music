@@ -8,7 +8,7 @@ using PermissionStatus = Shiny.Music.PermissionStatus;
 
 namespace MusicSample;
 
-[ShellMap<DuckTestPage>(registerRoute: false)]
+[ShellMap<DuckTestPage>("Ducking")]
 public partial class DuckTestViewModel(
     IMediaLibrary library,
     IMusicPlayer player,
@@ -18,6 +18,7 @@ public partial class DuckTestViewModel(
     [ObservableProperty] string announcementText = "This is a test announcement playing over your music.";
     [ObservableProperty] double duckLevel = 0.2;
     [ObservableProperty] string duckLevelText = "20%";
+    [ObservableProperty] string searchQuery = "";
     [ObservableProperty] ObservableCollection<TrackItem> tracks = [];
     [ObservableProperty] TrackItem? selectedTrack;
     [ObservableProperty] string nowPlaying = "No track selected";
@@ -26,34 +27,41 @@ public partial class DuckTestViewModel(
     [ObservableProperty] bool isSpeaking;
 
     public async void OnAppearing()
-    {
-        if (Tracks.Count == 0)
-            await LoadTracks();
-    }
+        => await EnsurePermission();
 
     public void OnDisappearing() { }
 
     partial void OnDuckLevelChanged(double value) =>
         DuckLevelText = $"{value * 100:0}%";
 
-    async Task LoadTracks()
+    async Task<bool> EnsurePermission()
     {
+        var status = await library.CheckPermissionAsync();
+        if (status != PermissionStatus.Granted)
+            status = await library.RequestPermissionAsync();
+
+        NeedsPermission = status != PermissionStatus.Granted;
+        return !NeedsPermission;
+    }
+
+    [RelayCommand]
+    async Task Search()
+    {
+        if (string.IsNullOrWhiteSpace(SearchQuery))
+        {
+            Tracks = [];
+            return;
+        }
+
+        if (!await EnsurePermission())
+            return;
+
         IsBusy = true;
         try
         {
-            var status = await library.CheckPermissionAsync();
-            if (status != PermissionStatus.Granted)
-                status = await library.RequestPermissionAsync();
-
-            if (status != PermissionStatus.Granted)
-            {
-                NeedsPermission = true;
-                return;
-            }
-
-            NeedsPermission = false;
-            var all = await library.GetAllTracksAsync();
-            Tracks = new ObservableCollection<TrackItem>(all.Select(t => new TrackItem(t)));
+            // Partial, case-insensitive match against title / artist / album
+            var results = await library.SearchTracksAsync(SearchQuery.Trim());
+            Tracks = new ObservableCollection<TrackItem>(results.Select(t => new TrackItem(t)));
 
             foreach (var item in Tracks)
                 _ = item.LoadAlbumArt(library);

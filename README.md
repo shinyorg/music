@@ -194,6 +194,8 @@ Add these to your `AndroidManifest.xml`:
 | `State` | Current `PlaybackState` (Stopped/Playing/Paused) |
 | `CurrentTrack` | The currently loaded `MusicMetadata` |
 | `Position` / `Duration` | Current position and total duration |
+| `Duck(options?)` | Lowers the playing music so an announcement can be heard over top; returns an `IAsyncDisposable` scope that restores full volume when disposed |
+| `IsDucked` | Whether a duck scope is currently active |
 | `StateChanged` | Event fired when playback state changes |
 | `PlaybackCompleted` | Event fired when a track finishes |
 

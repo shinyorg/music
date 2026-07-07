@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:MusicSample"
+             xmlns:shiny="clr-namespace:Shiny;assembly=Shiny.Maui.Shell"
+             x:Class="MusicSample.NavigationHubPage"
+             x:DataType="local:NavigationHubViewModel"
+             Title="Navigate">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16,20" Spacing="16">
+
+            <Label Text="Explore"
+                   FontSize="26"
+                   FontAttributes="Bold" />
+            <Label Text="Standalone feature demos — use the toolbar above or tap a card below."
+                   FontSize="14"
+                   TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+
+            <!-- Ducking -->
+            <Border StrokeThickness="0"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                    Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="16" />
+                </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="Black" Offset="0,3" Radius="10" Opacity="0.08" />
+                </Border.Shadow>
+                <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                    <Label Grid.Column="0" Text="🔊" FontSize="34" VerticalOptions="Center" />
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                        <Label Text="Ducking" FontSize="17" FontAttributes="Bold" />
+                        <Label Text="Speak an announcement over ducked music"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+                    </VerticalStackLayout>
+                    <Label Grid.Column="2" Text="›" FontSize="24"
+                           TextColor="{StaticResource Gray400}" VerticalOptions="Center" />
+                </Grid>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding OpenDuckingCommand}" />
+                </Border.GestureRecognizers>
+            </Border>
+
+            <!-- Spotify -->
+            <Border StrokeThickness="0"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                    Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="16" />
+                </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="Black" Offset="0,3" Radius="10" Opacity="0.08" />
+                </Border.Shadow>
+                <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                    <Label Grid.Column="0" Text="🎧" FontSize="34" VerticalOptions="Center" />
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                        <Label Text="Spotify" FontSize="17" FontAttributes="Bold" />
+                        <Label Text="Search, browse playlists, and control playback"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+                    </VerticalStackLayout>
+                    <Label Grid.Column="2" Text="›" FontSize="24"
+                           TextColor="{StaticResource Gray400}" VerticalOptions="Center" />
+                </Grid>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding OpenSpotifyCommand}" />
+                </Border.GestureRecognizers>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

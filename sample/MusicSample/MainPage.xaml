@@ -47,7 +47,17 @@
                                 </HorizontalStackLayout.GestureRecognizers>
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
-                        <BoxView Grid.Column="2" WidthRequest="40" Color="Transparent" />
+                        <Label Grid.Column="2"
+                               Text="&#x2630;"
+                               FontSize="22"
+                               TextColor="White"
+                               WidthRequest="40"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenNavigationCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
                     </Grid>
                 </Border>
 

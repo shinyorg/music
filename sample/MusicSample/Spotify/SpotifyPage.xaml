@@ -5,7 +5,7 @@
              xmlns:models="clr-namespace:Shiny.Spotify.Maui;assembly=Shiny.Spotify.Maui"
              x:Class="MusicSample.Spotify.SpotifyPage"
              x:DataType="spotify:SpotifyViewModel"
-             Shell.NavBarIsVisible="False">
+             Title="Spotify">
 
     <Grid>
         <Grid RowDefinitions="Auto,*,Auto">

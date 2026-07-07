@@ -47,6 +47,13 @@ triggers:
   - lyrics
   - synced lyrics
   - LRC
+  - ducking
+  - audio ducking
+  - Duck
+  - DuckOptions
+  - IsDucked
+  - duck music
+  - speak over music
   - LRCLIB
   - Shiny.Music
   - music metadata
@@ -355,6 +362,7 @@ Seeks to the specified position. Android uses millisecond precision; Apple platf
 | `CurrentTrack` | `MusicMetadata?` | Currently loaded track, or `null` if stopped |
 | `Position` | `TimeSpan` | Current playback position (`TimeSpan.Zero` if no track) |
 | `Duration` | `TimeSpan` | Total duration of current track (`TimeSpan.Zero` if no track) |
+| `IsDucked` | `bool` | Whether a duck scope is currently active |
 
 #### Events
 
@@ -362,6 +370,45 @@ Seeks to the specified position. Android uses millisecond precision; Apple platf
 |-------|-------------|
 | `StateChanged` | Raised on state transitions (e.g., Playing -> Paused) |
 | `PlaybackCompleted` | Raised when a track finishes naturally (not via `Stop()`) |
+
+#### Duck (audio ducking)
+
+```csharp
+IAsyncDisposable Duck(DuckOptions? options = null);
+```
+
+Temporarily lowers the currently playing music so an announcement (e.g. text-to-speech) can be heard over top. Returns an `IAsyncDisposable` **scope** — full volume is restored when the scope is disposed. Wrap the announcement in an `await using` block:
+
+```csharp
+await using (player.Duck(new DuckOptions { Level = 0.2 }))
+{
+    await TextToSpeech.Default.SpeakAsync("Turn left in 200 meters");
+}
+// music ramps back to full volume here
+```
+
+- **Last-writer-wins**: a newer `Duck` supersedes an older one. Disposing the active scope restores volume; disposing a superseded scope is a no-op.
+- Returns a **no-op scope** if nothing is currently playing (safe to call unconditionally).
+- Check `player.IsDucked` to know whether a duck is active.
+- **Android**: lowers this player's own track, honoring `DuckOptions.Level`, `FadeIn`, and `FadeOut` exactly.
+- **Apple platforms**: activates `AVAudioSession` with `DuckOthers`. `Level` and the fade durations are **advisory only** — the OS controls duck depth and ramp. Announcement audio played through the app's audio session (an `AVAudioPlayer`, or `AVSpeechSynthesizer` with `UsesApplicationAudioSession = true`) plays at full volume over the ducked music; only other out-of-process audio is ducked.
+
+#### DuckOptions
+
+```csharp
+public record DuckOptions
+{
+    public double Level { get; init; } = 0.2;                        // target volume 0.0–1.0 while ducked
+    public TimeSpan FadeIn { get; init; } = TimeSpan.FromMilliseconds(200);   // ramp-down when ducking starts
+    public TimeSpan FadeOut { get; init; } = TimeSpan.FromMilliseconds(200);  // ramp-up when the scope is disposed
+}
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Level` | `double` | `0.2` | Target volume (0.0–1.0) while ducked. Android: applied exactly. Apple: ignored (OS-controlled) |
+| `FadeIn` | `TimeSpan` | `200ms` | Ramp-down duration when ducking starts. Android: honored. Apple: ignored |
+| `FadeOut` | `TimeSpan` | `200ms` | Ramp-up duration when the duck scope is disposed. Android: honored. Apple: ignored |
 
 ### ILyricsProvider
 

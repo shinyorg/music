@@ -6,7 +6,7 @@ using Shiny.Spotify.Maui;
 
 namespace MusicSample.Spotify;
 
-[ShellMap<SpotifyPage>(registerRoute: false)]
+[ShellMap<SpotifyPage>("Spotify")]
 public partial class SpotifyViewModel(
     ISpotifyClient client,
     ISpotifyRemote remote,

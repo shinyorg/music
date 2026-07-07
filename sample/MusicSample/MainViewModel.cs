@@ -133,6 +133,9 @@ public partial class MainViewModel(
     }
 
     [RelayCommand]
+    Task OpenNavigation() => navigator.NavigateTo("Navigate");
+
+    [RelayCommand]
     async Task SelectTrack(TrackItem? item)
     {
         if (item == null) return;
