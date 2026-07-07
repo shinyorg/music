@@ -18,5 +18,6 @@
   <Project Path="bindings/Shiny.Spotify.AppRemote.iOS/Shiny.Spotify.AppRemote.iOS.csproj" />
   <Project Path="sample/MusicSample/MusicSample.csproj" />
   <Project Path="src/Shiny.Music/Shiny.Music.csproj" />
+  <Project Path="src/Shiny.Music.Extensions.AI/Shiny.Music.Extensions.AI.csproj" />
   <Project Path="src/Shiny.Spotify.Maui/Shiny.Spotify.Maui.csproj" />
 </Solution>

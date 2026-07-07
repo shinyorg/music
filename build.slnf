@@ -3,7 +3,8 @@
         "path": "Music.slnx",
         "projects": [
             "macios\\ShinyMusicKit.Binding\\ShinyMusicKit.Binding.csproj",
-            "src\\Shiny.Music\\Shiny.Music.csproj"
+            "src\\Shiny.Music\\Shiny.Music.csproj",
+            "src\\Shiny.Music.Extensions.AI\\Shiny.Music.Extensions.AI.csproj"
         ]
     }
 }

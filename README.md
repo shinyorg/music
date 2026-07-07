@@ -155,6 +155,43 @@ Add these to your `AndroidManifest.xml`:
   - Exported format is Apple M4A (`.m4a`)
 ---
 
+## AI Tools
+
+`Shiny.Music.Extensions.AI` exposes the music library and player as [`Microsoft.Extensions.AI`](https://learn.microsoft.com/dotnet/ai/) tool functions for LLM agents — so a chat agent can search and browse your library, pick a track for a mood, control playback, and manage playlists. Opt-in exactly which areas the model can see. Resolve `MusicAITools` from DI and pass `.Tools` to any `IChatClient`. AOT-compatible.
+
+```bash
+dotnet add package Shiny.Music.Extensions.AI
+```
+
+```csharp
+using Shiny.Music.Extensions.AI;
+
+builder.Services.AddShinyMusic();
+builder.Services.AddMusicAITools(tools => tools
+    .AddLibrary()             // search / browse / genres / playlists / lyrics (read-only)
+    .AddPlayback()            // play, pause, resume, stop, seek, now-playing
+    .AddPlaylistManagement()  // create / modify / delete custom playlists
+);
+// ...or simply .AddAll()
+
+// later, hand the tools to a chat client
+var tools = sp.GetRequiredService<MusicAITools>().Tools;
+var response = await chatClient.GetResponseAsync(
+    messages,
+    new ChatOptions { Tools = [.. tools] }
+);
+```
+
+Generated tools (only for areas you opt-in to):
+
+| Area | Tools |
+|---|---|
+| `AddLibrary()` | `search_tracks`, `browse_tracks`, `list_music_categories`, `list_playlists`, `get_playlist_tracks`, `get_lyrics` |
+| `AddPlayback()` | `play_track`, `control_playback`, `get_now_playing` |
+| `AddPlaylistManagement()` | `create_playlist`, `modify_playlist`, `delete_playlist` |
+
+`browse_tracks` filters by genre, year, decade, and free text — it's the natural path for "play me something mellow" or "pick an 80s track". The tools assume library permission is already granted — call `RequestPermissionAsync` from your app first; they do not trigger the permission UI.
+
 ## API Reference
 
 ### `IMediaLibrary`

@@ -67,6 +67,17 @@ triggers:
   - RemovePlaylistAsync
   - AddTrackToPlaylistAsync
   - RemoveTrackFromPlaylistAsync
+  - Shiny.Music.Extensions.AI
+  - MusicAITools
+  - AddMusicAITools
+  - music AI tools
+  - AIFunction music
+  - Microsoft.Extensions.AI music
+  - LLM music tools
+  - chat client music
+  - IChatClient music
+  - pick a song for mood
+  - play music with AI
 ---
 
 # Shiny Music Skill
@@ -93,6 +104,7 @@ Invoke this skill when the user wants to:
 - Create, remove, and manage playlists via `IMediaLibrary` playlist CRUD methods
 - Add or remove tracks from playlists
 - Browse playlists and their tracks (including custom playlists)
+- Expose the music library and player to an LLM agent as `Microsoft.Extensions.AI` tools (search, browse-by-mood, playback control, playlist management) via `Shiny.Music.Extensions.AI`
 
 ## Library Overview
 
@@ -676,3 +688,70 @@ foreach (var p in playlists)
 // Get tracks in a playlist
 var playlistTracks = await library.GetPlaylistTracksAsync(playlists[0].Id);
 ```
+
+## AI Tools (Microsoft.Extensions.AI)
+
+The **separate** `Shiny.Music.Extensions.AI` NuGet package exposes the music library and player as
+[`Microsoft.Extensions.AI`](https://learn.microsoft.com/dotnet/ai/) `AIFunction` tools, so an LLM chat
+agent can search/browse the library, pick a track for a mood, control playback, and manage playlists.
+It is AOT-compatible (hand-authored JSON schemas, no reflection) and depends only on
+`Microsoft.Extensions.AI.Abstractions`.
+
+- **NuGet**: `Shiny.Music.Extensions.AI` (in addition to `Shiny.Music`)
+- **Namespace**: `Shiny.Music.Extensions.AI`
+- **Entry points**: `AddMusicAITools(...)` (DI) and the resolvable `MusicAITools` bundle (`.Tools`)
+
+### Registration — opt-in areas
+
+Each `Add…` opts a group of tools in; anything not added is invisible to the LLM. `AddMusicAITools`
+requires `AddShinyMusic()` first (it resolves `IMediaLibrary`/`IMusicPlayer`/`ILyricsProvider`).
+
+```csharp
+using Shiny.Music.Extensions.AI;
+
+builder.Services.AddShinyMusic();
+builder.Services.AddMusicAITools(tools => tools
+    .AddLibrary()             // search_tracks, browse_tracks, list_music_categories,
+                              // list_playlists, get_playlist_tracks, get_lyrics
+    .AddPlayback()            // play_track, control_playback, get_now_playing
+    .AddPlaylistManagement()  // create_playlist, modify_playlist, delete_playlist
+);
+// or: builder.Services.AddMusicAITools(tools => tools.AddAll());
+```
+
+### Using the tools with a chat client
+
+```csharp
+var tools = sp.GetRequiredService<MusicAITools>().Tools;
+var response = await chatClient.GetResponseAsync(
+    messages,
+    new ChatOptions { Tools = [.. tools] }
+);
+```
+
+### Generated tools
+
+| Tool | Area | Arguments | Purpose |
+|---|---|---|---|
+| `search_tracks` | Library | `query` (required), `limit` | Free-text search over title/artist/album |
+| `browse_tracks` | Library | `genre`, `year`, `decade`, `query`, `limit` | Filter the library — the "pick a song for the mood" path |
+| `list_music_categories` | Library | `kind` (`genres`\|`years`\|`decades`, required), `genre` | Distinct categories with track counts |
+| `list_playlists` | Library | — | All playlists with ids and song counts |
+| `get_playlist_tracks` | Library | `playlist_id` (required), `limit` | Tracks in a playlist |
+| `get_lyrics` | Library | `track_id` (required) | Plain and/or synced lyrics (needs `ILyricsProvider`) |
+| `play_track` | Playback | `track_id` (required) | Load and play a track by id |
+| `control_playback` | Playback | `action` (`pause`\|`resume`\|`stop`\|`seek`, required), `position_seconds` | Transport control |
+| `get_now_playing` | Playback | — | Current state, track, position, duration |
+| `create_playlist` | Playlist mgmt | `name` (required) | Create a custom playlist |
+| `modify_playlist` | Playlist mgmt | `action` (`add_track`\|`remove_track`), `playlist_id`, `track_id` (all required) | Add/remove a track |
+| `delete_playlist` | Playlist mgmt | `playlist_id` (required) | Delete a custom playlist |
+
+### Notes
+
+- Every tool returns a structured JSON object; failures come back as `{ "error": "..." }` rather than throwing.
+- Track ids flow between tools: `search_tracks`/`browse_tracks`/`get_playlist_tracks` return `id`s that
+  `play_track`, `get_lyrics`, and `modify_playlist` consume.
+- The tools **assume music-library permission is already granted** — they never trigger the permission
+  UI (which needs a foreground activity). Call `IMediaLibrary.RequestPermissionAsync()` from the app first.
+- `AddPlayback()` throws at registration if no `IMusicPlayer` is available (i.e. `AddShinyMusic()` was not
+  called on a platform target).
