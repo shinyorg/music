@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AVFoundation;
 using Foundation;
 using MediaPlayer;
@@ -340,6 +341,49 @@ public class MediaLibrary : IMediaLibrary
             return false;
         }
     }
+
+    public async Task<IReadOnlyList<MusicMetadata>> SearchCatalogAsync(string term, int limit = 25)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+            return [];
+
+        string? json;
+        try
+        {
+            var result = await DotnetShinyMusicKit.SearchCatalogAsync(term, limit);
+            json = result?.ToString();
+        }
+        catch
+        {
+            // No authorization, no subscription, or a network/service failure — return empty rather than throw.
+            return [];
+        }
+
+        if (string.IsNullOrEmpty(json))
+            return [];
+
+        var songs = JsonSerializer.Deserialize(json, CatalogJsonContext.Default.ListCatalogSong);
+        if (songs == null)
+            return [];
+
+        return songs.Select(ToCatalogMetadata).ToList();
+    }
+
+    static MusicMetadata ToCatalogMetadata(CatalogSong song) => new(
+        Id: song.Id,
+        Title: song.Title,
+        Artist: song.Artist,
+        Album: song.Album,
+        Genre: song.Genre,
+        Duration: TimeSpan.FromMilliseconds(song.DurationMillis),
+        AlbumArtUri: song.ArtworkUrl,
+        IsExplicit: song.IsExplicit,
+        ContentUri: string.Empty,
+        StoreId: null,
+        Year: song.Year > 0 ? song.Year : null,
+        PlayCount: 0,
+        CatalogId: song.Id
+    );
 
     public async Task<PlaylistInfo> CreatePlaylistAsync(string name)
     {

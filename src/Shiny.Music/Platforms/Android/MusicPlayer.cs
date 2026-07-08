@@ -95,6 +95,12 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
         if (this.player == null || this.state != PlaybackState.Playing)
             return DuckScope.NoOp;
 
+        // Never layer ducks: while one is already active a second Duck() is a no-op, so there is
+        // only ever one active duck (and one fade). Layering let a superseded duck's restore-fade
+        // race the new duck's fade on the shared volume, which could leave the song stuck quiet.
+        if (this.activeDuck != null)
+            return DuckScope.NoOp;
+
         var opts = options ?? new DuckOptions();
         var level = (float)Math.Clamp(opts.Level, 0d, 1d);
 

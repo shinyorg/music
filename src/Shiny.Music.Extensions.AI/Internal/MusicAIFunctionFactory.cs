@@ -12,6 +12,10 @@ static class MusicAIFunctionFactory
     {
         var tools = new List<AITool>();
 
+        // Shared bridge so play_track can stream catalog results (which aren't in the local library).
+        // Populated by search_catalog (when AddCatalog is enabled); harmless and empty otherwise.
+        var catalogCache = new CatalogTrackCache();
+
         if (builder.Library)
         {
             tools.Add(new SearchTracksFunction(library));
@@ -23,6 +27,9 @@ static class MusicAIFunctionFactory
                 tools.Add(new GetLyricsFunction(library, lyrics));
         }
 
+        if (builder.Catalog)
+            tools.Add(new SearchCatalogFunction(library, catalogCache));
+
         if (builder.Playback)
         {
             if (player is null)
@@ -30,7 +37,7 @@ static class MusicAIFunctionFactory
                     "AddPlayback() was requested but no IMusicPlayer is registered. " +
                     "Call AddShinyMusic() on a platform target (Android / iOS / Mac Catalyst) before AddMusicAITools().");
 
-            tools.Add(new PlayTrackFunction(library, player));
+            tools.Add(new PlayTrackFunction(library, player, catalogCache));
             tools.Add(new ControlPlaybackFunction(player));
             tools.Add(new GetNowPlayingFunction(player));
         }

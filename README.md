@@ -27,6 +27,10 @@ Add a project reference to `Shiny.Music` from your .NET MAUI or platform-specifi
 
 ```csharp
 // Register in MauiProgram.cs
+builder
+    .UseMauiApp<App>()
+    .UseShiny();          // required — Android permission checks run on Shiny.Core (see below)
+
 builder.Services.AddShinyMusic();
 
 // Use via dependency injection
@@ -122,7 +126,10 @@ Add these to your `AndroidManifest.xml`:
 - **Minimum API Level**: 24 (Android 7.0)
 - **Target API 33+**: Uses `READ_MEDIA_AUDIO` granular media permission
 - **Target API < 33**: Falls back to `READ_EXTERNAL_STORAGE`
-- The library requests runtime permissions via the MAUI Permissions API
+- **Requires Shiny hosting** (**v4+**): runtime permission checks use **Shiny.Core**'s `AndroidPlatform`
+  (`GetCurrentPermissionStatus` / `RequestAccess`). Call `.UseShiny()` in `MauiProgram` — or, for native
+  Android, use `ShinyAndroidApplication` + `ShinyAndroidActivity` — so Shiny tracks the current activity and
+  routes the permission result. Without Shiny hosting, `IMediaLibrary` cannot resolve `AndroidPlatform`.
 - Music is queried through `MediaStore.Audio.Media`; playlists through `MediaStore.Audio.Playlists`
 - Playback uses `Android.Media.MediaPlayer` with content URIs
 - `HasStreamingSubscriptionAsync()` always returns `false`
@@ -146,8 +153,9 @@ Add these to your `AndroidManifest.xml`:
 - **Supported platforms**: iOS 17.0+, Mac Catalyst 17.0+
 - Permission is requested via `MPMediaLibrary.RequestAuthorization`
 - Music metadata is queried using `MPMediaQuery` (MediaPlayer framework)
-- **Playback** uses `MPMusicPlayerController.ApplicationMusicPlayer` for all tracks
+- **Playback** uses `MPMusicPlayerController.ApplicationMusicPlayer` for all tracks — local items by persistent ID, and streaming catalog items by catalog id via `MPMusicPlayerStoreQueueDescriptor`
 - `HasStreamingSubscriptionAsync()` checks MusicKit `MusicSubscription.GetCurrentAsync`
+- **Catalog search** (`SearchCatalogAsync`) uses MusicKit `MusicCatalogSearchRequest` to search the Apple Music streaming catalog — results need not be in the user's library and are playable via `PlayAsync` when the user has an active subscription. The first call prompts for MusicKit authorization. Catalog tracks are streaming-only (empty `ContentUri`, not copyable).
 - **Playlist management** uses locally-stored custom playlists (system playlists from `MPMediaQuery.PlaylistsQuery` are read-only)
 - **Copy Limitations**:
   - Non-DRM tracks can be exported via `AVAssetExportSession`
@@ -172,7 +180,16 @@ builder.Services.AddMusicAITools(tools => tools
     .AddPlayback()            // play, pause, resume, stop, seek, now-playing
     .AddPlaylistManagement()  // create / modify / delete custom playlists
 );
-// ...or simply .AddAll()
+// ...or simply .AddAll()  (the three cross-platform areas above)
+
+// Apple Music catalog search is opt-in and Apple-only — guard it with a compiler flag:
+// builder.Services.AddMusicAITools(tools =>
+// {
+//     tools.AddLibrary().AddPlayback().AddPlaylistManagement();
+// #if IOS || MACCATALYST
+//     tools.AddCatalog();   // exposes search_catalog (streaming catalog, not just the local library)
+// #endif
+// });
 
 // later, hand the tools to a chat client
 var tools = sp.GetRequiredService<MusicAITools>().Tools;
@@ -189,6 +206,7 @@ Generated tools (only for areas you opt-in to):
 | `AddLibrary()` | `search_tracks`, `browse_tracks`, `list_music_categories`, `list_playlists`, `get_playlist_tracks`, `get_lyrics` |
 | `AddPlayback()` | `play_track`, `control_playback`, `get_now_playing` |
 | `AddPlaylistManagement()` | `create_playlist`, `modify_playlist`, `delete_playlist` |
+| `AddCatalog()` *(Apple-only, opt-in)* | `search_catalog` — searches the Apple Music streaming catalog; results are playable via `play_track`. Not in `AddAll()`; guard with `#if IOS \|\| MACCATALYST` |
 
 `browse_tracks` filters by genre, year, decade, and free text — it's the natural path for "play me something mellow" or "pick an 80s track". The tools assume library permission is already granted — call `RequestPermissionAsync` from your app first; they do not trigger the permission UI.
 
@@ -214,6 +232,7 @@ Generated tools (only for areas you opt-in to):
 | `GetAlbumArtPathAsync(trackId)` | Returns a file path to album artwork for the track, or `null` |
 | `CopyTrackAsync(track, destPath)` | Copies a track to the specified path; returns `false` if not possible |
 | `HasStreamingSubscriptionAsync()` | Checks for an active streaming subscription (Apple platforms: Apple Music; Android: always `false`) |
+| `SearchCatalogAsync(term, limit)` | Searches the Apple Music streaming **catalog** (results need not be in the user's library); returns tracks playable via `PlayAsync`. **Apple only** — throws `PlatformNotSupportedException` on Android |
 | `CreatePlaylistAsync(name)` | Creates a new playlist; returns `PlaylistInfo` |
 | `RemovePlaylistAsync(playlistId)` | Removes a playlist |
 | `AddTrackToPlaylistAsync(playlistId, track)` | Adds a track to a playlist (no-op if already present) |
@@ -231,7 +250,7 @@ Generated tools (only for areas you opt-in to):
 | `State` | Current `PlaybackState` (Stopped/Playing/Paused) |
 | `CurrentTrack` | The currently loaded `MusicMetadata` |
 | `Position` / `Duration` | Current position and total duration |
-| `Duck(options?)` | Lowers the playing music so an announcement can be heard over top; returns an `IAsyncDisposable` scope that restores full volume when disposed |
+| `Duck(options?)` | Lowers the playing music so an announcement can be heard over top; returns an `IAsyncDisposable` scope that restores full volume when disposed. Only one duck is active at a time — calling `Duck` while one is active returns a no-op scope |
 | `IsDucked` | Whether a duck scope is currently active |
 | `StateChanged` | Event fired when playback state changes |
 | `PlaybackCompleted` | Event fired when a track finishes |
@@ -276,6 +295,7 @@ All properties are optional and combined with AND logic. Pass to `GetTracksAsync
 | `StoreId` | `string?` | Track identifier for `MPMusicPlayerController` playback (Apple platforms only; null on Android) |
 | `Year` | `int?` | Release year |
 | `PlayCount` | `int` | Times played. Apple: from `MPMediaItem.PlayCount`. Android: from local store. Default 0. |
+| `CatalogId` | `string?` | Apple Music **catalog** identifier, set on tracks from `SearchCatalogAsync`. When present, `PlayAsync` streams the track by catalog id (subscription required) and `ContentUri` is empty (not copyable). Null for local tracks and on Android. |
 
 ### `PlaylistInfo`
 

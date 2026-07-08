@@ -27,6 +27,13 @@ namespace Shiny.Music;
 /// On Apple platforms, this is the <c>MPMediaItem.PersistentID</c>.
 /// Always <c>null</c> on Android.
 /// </param>
+/// <param name="CatalogId">
+/// The Apple Music streaming catalog identifier for tracks returned by
+/// <see cref="IMediaLibrary.SearchCatalogAsync"/>. When set, the track is a streaming catalog item
+/// (not in the user's library): <see cref="IMusicPlayer.PlayAsync"/> enqueues it by this id via
+/// <c>MPMusicPlayerStoreQueueDescriptor</c>, and its <see cref="ContentUri"/> is empty (streaming-only,
+/// not copyable). <c>null</c> for local library tracks and always <c>null</c> on Android.
+/// </param>
 /// <param name="Year">
 /// The release year of the track, or <c>null</c> if the platform does not provide this information
 /// or the track has no year metadata set.
@@ -48,12 +55,17 @@ public record MusicMetadata(
     string ContentUri,
     string? StoreId = null,
     int? Year = null,
-    int PlayCount = 0
+    int PlayCount = 0,
+    string? CatalogId = null
 )
 {
     /// <summary>
-    /// Whether this track can be played. A track is playable if it has a <see cref="ContentUri"/> (local)
-    /// or a <see cref="StoreId"/> (playback via <c>MPMusicPlayerController</c>).
+    /// Whether this track can be played. A track is playable if it has a <see cref="ContentUri"/> (local),
+    /// a <see cref="StoreId"/> (local playback via <c>MPMusicPlayerController</c>), or a
+    /// <see cref="CatalogId"/> (streaming catalog playback, subscription required).
     /// </summary>
-    public bool IsPlayable => !string.IsNullOrEmpty(ContentUri) || !string.IsNullOrEmpty(StoreId);
+    public bool IsPlayable =>
+        !string.IsNullOrEmpty(ContentUri) ||
+        !string.IsNullOrEmpty(StoreId) ||
+        !string.IsNullOrEmpty(CatalogId);
 }

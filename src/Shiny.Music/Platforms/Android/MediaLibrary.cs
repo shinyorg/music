@@ -1,14 +1,12 @@
 using Android.Content;
-using Android.Content.PM;
 using Android.Database;
 using Android.Provider;
-using AndroidX.Core.Content;
-using Activity = Android.App.Activity;
+using Shiny;
 using Uri = Android.Net.Uri;
 
 namespace Shiny.Music;
 
-public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore playCounts) : IMediaLibrary
+public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) : IMediaLibrary
 {
     readonly CustomPlaylistStore customPlaylists = new();
     static readonly string[] AudioProjection = 
@@ -27,27 +25,23 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
 
     public Task<PermissionStatus> CheckPermissionAsync()
     {
-        string permission = GetRequiredPermission();
-
-        var result = ContextCompat.CheckSelfPermission(Application.Context, permission);
-        var status = result == Permission.Granted ? PermissionStatus.Granted : PermissionStatus.Denied;
-        return Task.FromResult(status);
+        var state = platform.GetCurrentPermissionStatus(GetRequiredPermission());
+        return Task.FromResult(ToPermissionStatus(state));
     }
 
-    public Task<PermissionStatus> RequestPermissionAsync()
+    public async Task<PermissionStatus> RequestPermissionAsync()
     {
-        string permission = GetRequiredPermission();
-
-        if (ContextCompat.CheckSelfPermission(Application.Context, permission) == Permission.Granted)
-            return Task.FromResult(PermissionStatus.Granted);
-
-        var activity = activityProvider.Current;
-        if (activity is not AndroidX.Fragment.App.FragmentActivity fragmentActivity)
-            throw new InvalidOperationException("Current activity must be a FragmentActivity to request permissions");
-
-        var fragment = new PermissionRequestFragment();
-        return fragment.RequestAsync(fragmentActivity, permission);
+        var state = await platform.RequestAccess(GetRequiredPermission()).ConfigureAwait(false);
+        return ToPermissionStatus(state);
     }
+
+    static PermissionStatus ToPermissionStatus(AccessState state) => state switch
+    {
+        AccessState.Available => PermissionStatus.Granted,
+        AccessState.Restricted => PermissionStatus.Restricted,
+        AccessState.Unknown or AccessState.NotSetup => PermissionStatus.Unknown,
+        _ => PermissionStatus.Denied
+    };
 
     public async Task<IReadOnlyList<MusicMetadata>> GetAllTracksAsync()
     {
@@ -768,6 +762,11 @@ public class MediaLibrary(ActivityProvider activityProvider, PlayCountStore play
     }
 
     public Task<bool> HasStreamingSubscriptionAsync() => Task.FromResult(false);
+
+    public Task<IReadOnlyList<MusicMetadata>> SearchCatalogAsync(string term, int limit = 25)
+        => throw new PlatformNotSupportedException(
+            "Apple Music catalog search is only available on Apple platforms. " +
+            "On Android, use SearchTracksAsync to search the local library.");
 
     public async Task<PlaylistInfo> CreatePlaylistAsync(string name)
     {

@@ -24,6 +24,9 @@
 
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
         <Compile Include="Platforms\Android\**\*.cs"/>
+        <!-- Android permission checks are handled by Shiny.Core's AndroidPlatform, which requires
+             the consuming app to be running under Shiny hosting (UseShiny / ShinyAndroidApplication). -->
+        <PackageReference Include="Shiny.Core"/>
     </ItemGroup>
 
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' Or $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">

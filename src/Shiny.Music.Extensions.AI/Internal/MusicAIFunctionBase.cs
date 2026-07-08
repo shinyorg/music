@@ -87,6 +87,8 @@ abstract class MusicAIFunctionBase : AIFunction
             o["year"] = year;
         if (t.IsExplicit is bool explicitFlag)
             o["isExplicit"] = explicitFlag;
+        if (!string.IsNullOrEmpty(t.CatalogId))
+            o["catalogId"] = t.CatalogId;
         return o;
     }
 }

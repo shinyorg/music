@@ -32,15 +32,25 @@ public class MusicPlayer : IMusicPlayer
     {
         this.Stop();
 
-        if (!ulong.TryParse(track.Id, out var pid))
-            throw new InvalidOperationException("Invalid track ID.");
+        if (!string.IsNullOrEmpty(track.CatalogId))
+        {
+            // Streaming catalog track (from SearchCatalogAsync) — enqueue by catalog id.
+            // Requires an active Apple Music subscription; the item need not be in the local library.
+            this.player.SetQueue(new MPMusicPlayerStoreQueueDescriptor(new[] { track.CatalogId }));
+            this.player.Play();
+        }
+        else
+        {
+            if (!ulong.TryParse(track.Id, out var pid))
+                throw new InvalidOperationException("Invalid track ID.");
 
-        var query = MPMediaQuery.SongsQuery;
-        var item = query.Items?.FirstOrDefault(i => i.PersistentID == pid)
-            ?? throw new InvalidOperationException("Track not found in music library.");
+            var query = MPMediaQuery.SongsQuery;
+            var item = query.Items?.FirstOrDefault(i => i.PersistentID == pid)
+                ?? throw new InvalidOperationException("Track not found in music library.");
 
-        this.player.SetQueue(new MPMediaItemCollection(new[] { item }));
-        this.player.Play();
+            this.player.SetQueue(new MPMediaItemCollection(new[] { item }));
+            this.player.Play();
+        }
 
         this.explicitStop = false;
         this.currentTrack = track;
@@ -81,6 +91,12 @@ public class MusicPlayer : IMusicPlayer
     public IAsyncDisposable Duck(DuckOptions? options = null)
     {
         if (this.state != PlaybackState.Playing)
+            return DuckScope.NoOp;
+
+        // Never layer ducks: while one is already active a second Duck() is a no-op, so there is
+        // only ever one active duck (and one restore). Layering let a superseded duck's restore
+        // fight the new duck, which could leave the song stuck at a lowered level.
+        if (this.activeDuck != null)
             return DuckScope.NoOp;
 
         // The level/fade in DuckOptions are advisory on Apple: the OS controls duck depth and ramp.

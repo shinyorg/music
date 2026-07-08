@@ -5,9 +5,9 @@ using Microsoft.Extensions.AI;
 namespace Shiny.Music.Extensions.AI.Internal;
 
 /// <summary>Loads and plays a track by id.</summary>
-sealed class PlayTrackFunction(IMediaLibrary library, IMusicPlayer player) : MusicAIFunctionBase(
+sealed class PlayTrackFunction(IMediaLibrary library, IMusicPlayer player, CatalogTrackCache catalog) : MusicAIFunctionBase(
     "play_track",
-    "Load and start playing a track by its id (from search_tracks / browse_tracks / get_playlist_tracks). Any currently playing track is stopped first.",
+    "Load and start playing a track by its id (from search_tracks / browse_tracks / get_playlist_tracks / search_catalog). Any currently playing track is stopped first.",
     BuildSchema())
 {
     static JsonElement BuildSchema()
@@ -24,7 +24,9 @@ sealed class PlayTrackFunction(IMediaLibrary library, IMusicPlayer player) : Mus
         if (string.IsNullOrWhiteSpace(trackId))
             return new JsonObject { ["error"] = "A 'track_id' is required." };
 
-        var track = await library.GetTrackByIdAsync(trackId).ConfigureAwait(false);
+        // Catalog tracks (from search_catalog) aren't in the local library — resolve them from the
+        // catalog cache first, then fall back to a local library lookup.
+        var track = catalog.Get(trackId) ?? await library.GetTrackByIdAsync(trackId).ConfigureAwait(false);
         if (track is null)
             return new JsonObject { ["error"] = $"No track found with id '{trackId}'." };
         if (!track.IsPlayable)

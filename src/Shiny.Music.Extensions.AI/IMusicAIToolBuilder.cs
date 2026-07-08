@@ -26,6 +26,22 @@ public interface IMusicAIToolBuilder
     /// </summary>
     IMusicAIToolBuilder AddPlaylistManagement();
 
-    /// <summary>Exposes every area in one call (library, playback, and playlist management).</summary>
+    /// <summary>
+    /// Exposes the <c>search_catalog</c> tool — searching the Apple Music streaming catalog for songs
+    /// that need not be in the user's library, playable through <c>play_track</c> when the
+    /// <see cref="AddPlayback"/> area is also enabled. Requires <see cref="IMediaLibrary"/> in DI.
+    /// <para>
+    /// <b>Apple platforms only.</b> The underlying <see cref="IMediaLibrary.SearchCatalogAsync"/> throws
+    /// on Android (the tool reports it as an error to the model). It is deliberately <b>not</b> included in
+    /// <see cref="AddAll"/> — guard the call with <c>#if IOS</c> (or an Apple runtime check) so the tool is
+    /// only offered where it works. See the docs for the recommended registration pattern.
+    /// </para>
+    /// </summary>
+    IMusicAIToolBuilder AddCatalog();
+
+    /// <summary>
+    /// Exposes every cross-platform area in one call (library, playback, and playlist management).
+    /// Does <b>not</b> include <see cref="AddCatalog"/>, which is Apple-only and must be opted-in explicitly.
+    /// </summary>
     IMusicAIToolBuilder AddAll();
 }

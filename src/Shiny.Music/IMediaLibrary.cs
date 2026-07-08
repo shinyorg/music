@@ -154,6 +154,25 @@ public interface IMediaLibrary
     Task<bool> HasStreamingSubscriptionAsync();
 
     /// <summary>
+    /// Searches the Apple Music streaming catalog for songs matching the given term. Unlike
+    /// <see cref="SearchTracksAsync"/> (which searches the user's <em>local</em> library), this returns
+    /// streaming catalog tracks that need not be in the user's library. Each returned
+    /// <see cref="MusicMetadata"/> carries a <see cref="MusicMetadata.CatalogId"/> and can be played
+    /// through <see cref="IMusicPlayer.PlayAsync"/>, provided the user has an active subscription
+    /// (see <see cref="HasStreamingSubscriptionAsync"/>). Catalog tracks are streaming-only: their
+    /// <see cref="MusicMetadata.ContentUri"/> is empty and they cannot be copied via <see cref="CopyTrackAsync"/>.
+    /// The first call triggers a MusicKit authorization prompt if the user has not yet been asked.
+    /// <para><b>Apple platforms only.</b> Throws <see cref="PlatformNotSupportedException"/> on Android.</para>
+    /// </summary>
+    /// <param name="term">The search text to match against catalog song title, artist, and album.</param>
+    /// <param name="limit">The maximum number of results to return. Apple Music caps this at 25; defaults to 25.</param>
+    /// <returns>
+    /// A read-only list of catalog <see cref="MusicMetadata"/> matching the term. Returns an empty list when
+    /// nothing matches, the user has no subscription/authorization, or the request fails.
+    /// </returns>
+    Task<IReadOnlyList<MusicMetadata>> SearchCatalogAsync(string term, int limit = 25);
+
+    /// <summary>
     /// Creates a new locally-stored custom playlist with the given name.
     /// On both platforms, playlists are persisted as JSON in local app data.
     /// </summary>

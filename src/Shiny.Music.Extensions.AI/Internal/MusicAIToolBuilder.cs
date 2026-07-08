@@ -5,8 +5,9 @@ sealed class MusicAIToolBuilder : IMusicAIToolBuilder
     public bool Library { get; private set; }
     public bool Playback { get; private set; }
     public bool PlaylistManagement { get; private set; }
+    public bool Catalog { get; private set; }
 
-    public bool IsEmpty => !this.Library && !this.Playback && !this.PlaylistManagement;
+    public bool IsEmpty => !this.Library && !this.Playback && !this.PlaylistManagement && !this.Catalog;
 
     public IMusicAIToolBuilder AddLibrary()
     {
@@ -23,6 +24,12 @@ sealed class MusicAIToolBuilder : IMusicAIToolBuilder
     public IMusicAIToolBuilder AddPlaylistManagement()
     {
         this.PlaylistManagement = true;
+        return this;
+    }
+
+    public IMusicAIToolBuilder AddCatalog()
+    {
+        this.Catalog = true;
         return this;
     }
 
