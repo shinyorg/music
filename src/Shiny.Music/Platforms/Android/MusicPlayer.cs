@@ -155,6 +155,11 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
 
     public void Seek(TimeSpan position)
     {
+        // Ignore seeks once stopped: a slice-loop's final poll can race in just after Stop(), and
+        // seeking a stopped/released MediaPlayer throws IllegalStateException (or could revive it).
+        if (this.state == PlaybackState.Stopped)
+            return;
+
         this.player?.SeekTo((int)position.TotalMilliseconds);
     }
 
