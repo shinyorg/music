@@ -12,7 +12,9 @@ public class MusicPlayer : IMusicPlayer
     PlaybackState state = PlaybackState.Stopped;
     bool explicitStop;
 
+    readonly object duckLock = new();
     DuckScope? activeDuck;
+    CancellationTokenSource? deactivateCts;
 
     public PlaybackState State => this.state;
     public MusicMetadata? CurrentTrack => this.currentTrack;
@@ -93,49 +95,124 @@ public class MusicPlayer : IMusicPlayer
         if (this.state != PlaybackState.Playing)
             return DuckScope.NoOp;
 
-        // Never layer ducks: while one is already active a second Duck() is a no-op, so there is
-        // only ever one active duck (and one restore). Layering let a superseded duck's restore
-        // fight the new duck, which could leave the song stuck at a lowered level.
-        if (this.activeDuck != null)
-            return DuckScope.NoOp;
-
-        // The level/fade in DuckOptions are advisory on Apple: the OS controls duck depth and ramp.
-        // Anything played through the app audio session (an AVAudioPlayer announcement file, or an
-        // AVSpeechSynthesizer with UsesApplicationAudioSession = true) is NOT ducked and plays over top.
-        var session = AVAudioSession.SharedInstance();
-        var okCategory = session.SetCategory(AVAudioSessionCategory.Playback, AVAudioSessionCategoryOptions.DuckOthers, out _);
-        var okActive = session.SetActive(true, out _);
-        if (!okCategory || !okActive)
+        lock (this.duckLock)
         {
-            // Could not duck — undo any partial activation and return a no-op so the caller's flow isn't broken.
-            session.SetActive(false, AVAudioSessionSetActiveOptions.NotifyOthersOnDeactivation, out _);
-            return DuckScope.NoOp;
-        }
+            // Never layer ducks: while one is already active a second Duck() is a no-op, so there is
+            // only ever one active duck (and one restore). Layering let a superseded duck's restore
+            // fight the new duck, which could leave the song stuck at a lowered level.
+            if (this.activeDuck != null)
+                return DuckScope.NoOp;
 
-        var scope = new DuckScope(this.RestoreAsync);
-        this.activeDuck = scope;
-        return scope;
+            // We're (re)ducking: cancel a still-pending restore from a just-disposed duck so the
+            // session isn't dropped and immediately re-raised between rapid announcements.
+            this.deactivateCts?.Cancel();
+            this.deactivateCts = null;
+
+            // The level/fade in DuckOptions are advisory on Apple: the OS controls duck depth and ramp.
+            // Anything played through the app audio session (an AVAudioPlayer announcement file, or an
+            // AVSpeechSynthesizer with UsesApplicationAudioSession = true) is NOT ducked and plays over top.
+            var session = AVAudioSession.SharedInstance();
+            var okCategory = session.SetCategory(AVAudioSessionCategory.Playback, AVAudioSessionCategoryOptions.DuckOthers, out _);
+            var okActive = session.SetActive(true, out _);
+            if (!okCategory || !okActive)
+            {
+                // Could not duck — undo any partial activation and return a no-op so the caller's flow isn't broken.
+                session.SetActive(false, AVAudioSessionSetActiveOptions.NotifyOthersOnDeactivation, out _);
+                return DuckScope.NoOp;
+            }
+
+            var scope = new DuckScope(this.RestoreAsync);
+            this.activeDuck = scope;
+            return scope;
+        }
     }
 
     ValueTask RestoreAsync(DuckScope scope)
     {
-        // Last-writer-wins: only the active scope restores; a superseded scope is a no-op.
-        if (this.activeDuck != scope)
-            return default;
+        lock (this.duckLock)
+        {
+            // Only the active scope restores; a superseded scope is a no-op.
+            if (this.activeDuck != scope)
+                return default;
 
-        this.EndDuck();
+            this.activeDuck = null;
+            this.BeginRestoreLocked();
+        }
         return default;
     }
 
+    // Stop()/Dispose() path — force the session back to full volume regardless of which scope owns it.
     void EndDuck()
     {
-        if (this.activeDuck == null)
+        lock (this.duckLock)
+        {
+            if (this.activeDuck == null && this.deactivateCts == null)
+                return;
+
+            this.activeDuck = null;
+            this.BeginRestoreLocked();
+        }
+    }
+
+    // Return the ducked music to full volume by deactivating the session. Caller must hold duckLock.
+    void BeginRestoreLocked()
+    {
+        this.deactivateCts?.Cancel();
+        this.deactivateCts = null;
+
+        if (TryDeactivate())
             return;
 
-        this.activeDuck = null;
-        AVAudioSession
+        // SetActive(false) can fail with AVAudioSessionErrorCode.IsBusy while a just-finished
+        // announcement is still draining out of the app session. Retry on a background loop until
+        // it takes (or a newer duck cancels us), otherwise the song stays ducked forever.
+        var cts = new CancellationTokenSource();
+        this.deactivateCts = cts;
+        _ = this.DeactivateRetryAsync(cts);
+    }
+
+    static bool TryDeactivate()
+        => AVAudioSession
             .SharedInstance()
             .SetActive(false, AVAudioSessionSetActiveOptions.NotifyOthersOnDeactivation, out _);
+
+    async Task DeactivateRetryAsync(CancellationTokenSource cts)
+    {
+        var ct = cts.Token;
+        try
+        {
+            for (var attempt = 0; attempt < 60; attempt++)
+            {
+                await Task.Delay(50, ct).ConfigureAwait(false);
+
+                lock (this.duckLock)
+                {
+                    // A newer duck (re-activation) or restore superseded this attempt — stop.
+                    if (ct.IsCancellationRequested || this.deactivateCts != cts)
+                        return;
+
+                    if (TryDeactivate())
+                    {
+                        this.deactivateCts = null;
+                        return;
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            // Never leave the field pointing at a disposed source (retries exhausted or cancelled),
+            // or the next Duck()/EndDuck() would Cancel() a disposed CTS and throw.
+            lock (this.duckLock)
+            {
+                if (this.deactivateCts == cts)
+                    this.deactivateCts = null;
+            }
+            cts.Dispose();
+        }
     }
 
     public void Seek(TimeSpan position)
