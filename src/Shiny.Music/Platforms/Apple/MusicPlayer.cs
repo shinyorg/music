@@ -1,4 +1,6 @@
+using System.Runtime.ExceptionServices;
 using AVFoundation;
+using CoreFoundation;
 using Foundation;
 using MediaPlayer;
 
@@ -6,24 +8,30 @@ namespace Shiny.Music;
 
 public class MusicPlayer : IMusicPlayer
 {
+    // MPMusicPlayerController and AVAudioSession are main-thread-affine, and this player is driven
+    // from two threads: the app/UI thread (Play/Stop/Duck/dispose + the OS playback-state observer)
+    // and a background slice-loop that polls Position/State and calls Seek/Stop. To make that safe we
+    // funnel EVERY native call and all shared-state access through the main thread via RunOnMain, so
+    // there is only ever one thread touching the player and its fields at a time. Without this the
+    // ducking and Stop() behaved non-deterministically under a team walkout's concurrent load.
     readonly MPMusicPlayerController player = MPMusicPlayerController.ApplicationMusicPlayer;
     NSObject? stateObserver;
     MusicMetadata? currentTrack;
-    PlaybackState state = PlaybackState.Stopped;
+    volatile PlaybackState state = PlaybackState.Stopped;
     bool explicitStop;
 
-    readonly object duckLock = new();
     DuckScope? activeDuck;
     bool sessionActive;
 
+    // A plain field read (no native call); volatile keeps it visible to the background poll loop.
     public PlaybackState State => this.state;
     public MusicMetadata? CurrentTrack => this.currentTrack;
     public bool IsDucked => this.activeDuck != null;
 
-    public TimeSpan Position =>
+    public TimeSpan Position => RunOnMain(() =>
         this.state != PlaybackState.Stopped
             ? TimeSpan.FromSeconds(this.player.CurrentPlaybackTime)
-            : TimeSpan.Zero;
+            : TimeSpan.Zero);
 
     public TimeSpan Duration => this.currentTrack?.Duration ?? TimeSpan.Zero;
 
@@ -32,7 +40,14 @@ public class MusicPlayer : IMusicPlayer
 
     public Task PlayAsync(MusicMetadata track)
     {
-        this.Stop();
+        RunOnMain(() => this.PlayCore(track));
+        return Task.CompletedTask;
+    }
+
+    void PlayCore(MusicMetadata track)
+    {
+        this.StopCore();
+        this.explicitStop = false;   // clear the stop intent before issuing the new play
 
         if (!string.IsNullOrEmpty(track.CatalogId))
         {
@@ -54,75 +69,76 @@ public class MusicPlayer : IMusicPlayer
             this.player.Play();
         }
 
-        this.explicitStop = false;
         this.currentTrack = track;
         this.SetState(PlaybackState.Playing);
         this.StartObserving();
-
-        return Task.CompletedTask;
     }
 
-    public void Pause()
+    public void Pause() => RunOnMain(() =>
     {
         if (this.state != PlaybackState.Playing)
             return;
 
         this.player.Pause();
         this.SetState(PlaybackState.Paused);
-    }
+    });
 
-    public void Resume()
+    public void Resume() => RunOnMain(() =>
     {
         if (this.state != PlaybackState.Paused)
             return;
 
         this.player.Play();
         this.SetState(PlaybackState.Playing);
-    }
+    });
 
-    public void Stop()
+    public void Stop() => RunOnMain(this.StopCore);
+
+    void StopCore()
     {
         this.explicitStop = true;
-        this.StopObserving();
-        this.EndDuck();
+        this.EndDuckCore();
         this.player.Stop();
         this.currentTrack = null;
         this.SetState(PlaybackState.Stopped);
+
+        // Deliberately keep observing after a Stop(). SetQueue/Play on MPMusicPlayerController is
+        // asynchronous, so a play() issued a moment earlier can still fire AFTER this Stop() and
+        // resurrect the track — which is why stopping a song within a second or two of starting it
+        // "didn't work". OnPlaybackStateChanged catches that stray Playing state and forces it back
+        // down. Observing is reset by the next PlayCore and torn down in Dispose.
     }
 
-    public IAsyncDisposable Duck(DuckOptions? options = null)
+    public IAsyncDisposable Duck(DuckOptions? options = null) => RunOnMain<IAsyncDisposable>(() =>
     {
         if (this.state != PlaybackState.Playing)
             return DuckScope.NoOp;
 
-        lock (this.duckLock)
-        {
-            // Never layer ducks: while one is already active a second Duck() is a no-op, so there is
-            // only ever one active duck (and one restore). Layering let a superseded duck's restore
-            // fight the new duck, which could leave the song stuck at a lowered level.
-            if (this.activeDuck != null)
-                return DuckScope.NoOp;
+        // Never layer ducks: while one is already active a second Duck() is a no-op, so there is
+        // only ever one active duck (and one restore). Layering let a superseded duck's restore
+        // fight the new duck, which could leave the song stuck at a lowered level.
+        if (this.activeDuck != null)
+            return DuckScope.NoOp;
 
-            // Duck by activating our session with DuckOthers. The level/fade in DuckOptions are
-            // advisory on Apple: the OS controls duck depth and ramp. Anything played through the app
-            // audio session (an AVAudioPlayer announcement file, or an AVSpeechSynthesizer with
-            // UsesApplicationAudioSession = true) is NOT ducked and plays over top.
-            if (!this.ApplyCategoryLocked(AVAudioSessionCategoryOptions.DuckOthers))
-                return DuckScope.NoOp;
+        // Duck by activating our session with DuckOthers. The level/fade in DuckOptions are
+        // advisory on Apple: the OS controls duck depth and ramp. Anything played through the app
+        // audio session (an AVAudioPlayer announcement file, or an AVSpeechSynthesizer with
+        // UsesApplicationAudioSession = true) is NOT ducked and plays over top.
+        if (!this.ApplyCategory(AVAudioSessionCategoryOptions.DuckOthers))
+            return DuckScope.NoOp;
 
-            var scope = new DuckScope(this.RestoreAsync);
-            this.activeDuck = scope;
-            return scope;
-        }
-    }
+        var scope = new DuckScope(this.RestoreAsync);
+        this.activeDuck = scope;
+        return scope;
+    });
 
     ValueTask RestoreAsync(DuckScope scope)
     {
-        lock (this.duckLock)
+        RunOnMain(() =>
         {
             // Only the active scope restores; a superseded scope is a no-op.
             if (this.activeDuck != scope)
-                return default;
+                return;
 
             this.activeDuck = null;
 
@@ -131,33 +147,30 @@ public class MusicPlayer : IMusicPlayer
             // announcement is still draining, and during a team walkout's rapid roll-call the session
             // is essentially never idle, so deactivation kept failing and the music stayed ducked the
             // whole time. Re-applying the category has no such failure mode, so the music reliably
-            // swells back between names. The session is fully released later, in EndDuck().
-            this.ApplyCategoryLocked(AVAudioSessionCategoryOptions.MixWithOthers);
-        }
+            // swells back between names. The session is fully released later, in Stop()/EndDuck().
+            this.ApplyCategory(AVAudioSessionCategoryOptions.MixWithOthers);
+        });
         return default;
     }
 
-    // Stop()/Dispose() path — release the session so the ducked music (and everything else) returns
-    // to normal. Called when the game is stopping, so the app audio is idle and deactivation succeeds.
-    void EndDuck()
+    // Release the session so the ducked music (and everything else) returns to normal. Runs as part of
+    // StopCore (already on the main thread), when the app audio is idle and deactivation succeeds.
+    void EndDuckCore()
     {
-        lock (this.duckLock)
-        {
-            this.activeDuck = null;
-            if (!this.sessionActive)
-                return;
+        this.activeDuck = null;
+        if (!this.sessionActive)
+            return;
 
-            AVAudioSession
-                .SharedInstance()
-                .SetActive(false, AVAudioSessionSetActiveOptions.NotifyOthersOnDeactivation, out _);
-            this.sessionActive = false;
-        }
+        AVAudioSession
+            .SharedInstance()
+            .SetActive(false, AVAudioSessionSetActiveOptions.NotifyOthersOnDeactivation, out _);
+        this.sessionActive = false;
     }
 
     // Apply the given options to an active Playback session. Toggling DuckOthers <-> MixWithOthers this
     // way changes the duck state on the (out-of-process) music without the SetActive(false) IsBusy
-    // problem. Caller must hold duckLock. Returns false if the session could not be activated.
-    bool ApplyCategoryLocked(AVAudioSessionCategoryOptions options)
+    // problem. Runs on the main thread. Returns false if the session could not be activated.
+    bool ApplyCategory(AVAudioSessionCategoryOptions options)
     {
         var session = AVAudioSession.SharedInstance();
         var okCategory = session.SetCategory(AVAudioSessionCategory.Playback, options, out _);
@@ -166,7 +179,7 @@ public class MusicPlayer : IMusicPlayer
         return okCategory && okActive;
     }
 
-    public void Seek(TimeSpan position)
+    public void Seek(TimeSpan position) => RunOnMain(() =>
     {
         // Setting CurrentPlaybackTime on MPMusicPlayerController resumes playback, so a Seek that
         // races in just after Stop() (e.g. a slice-loop's final poll) would resurrect stopped music.
@@ -175,12 +188,13 @@ public class MusicPlayer : IMusicPlayer
             return;
 
         this.player.CurrentPlaybackTime = position.TotalSeconds;
-    }
+    });
 
-    public void Dispose()
+    public void Dispose() => RunOnMain(() =>
     {
-        this.Stop();
-    }
+        this.StopCore();
+        this.StopObserving();
+    });
 
     void SetState(PlaybackState newState)
     {
@@ -193,7 +207,7 @@ public class MusicPlayer : IMusicPlayer
         this.StopObserving();
         this.stateObserver = NSNotificationCenter.DefaultCenter.AddObserver(
             MPMusicPlayerController.PlaybackStateDidChangeNotification,
-            this.OnPlaybackStateChanged);
+            _ => this.OnPlaybackStateChanged());
         this.player.BeginGeneratingPlaybackNotifications();
     }
 
@@ -207,10 +221,19 @@ public class MusicPlayer : IMusicPlayer
         }
     }
 
-    void OnPlaybackStateChanged(NSNotification notification)
+    // The OS delivers this notification on the main thread, but funnel through RunOnMain anyway so it
+    // is serialized with every other player operation regardless of delivery thread.
+    void OnPlaybackStateChanged() => RunOnMain(() =>
     {
         if (this.explicitStop)
+        {
+            // A queued play() from a just-started track can fire after Stop() (async SetQueue/Play);
+            // force it back down so a Stop within a second or two of starting the track still wins.
+            // Re-stopping settles to Stopped, at which point this branch becomes a no-op.
+            if (this.player.PlaybackState != MPMusicPlaybackState.Stopped)
+                this.player.Stop();
             return;
+        }
 
         var mpState = this.player.PlaybackState;
         switch (mpState)
@@ -233,5 +256,41 @@ public class MusicPlayer : IMusicPlayer
                 this.SetState(PlaybackState.Paused);
                 break;
         }
+    });
+
+    // Run an action on the main thread and wait for it. Executes inline when already on the main
+    // thread; otherwise dispatches synchronously so the caller (e.g. the background slice-loop) blocks
+    // until it completes. Exceptions are marshalled back to the caller with their stack intact.
+    static void RunOnMain(Action action)
+    {
+        if (NSThread.Current.IsMainThread)
+        {
+            action();
+            return;
+        }
+
+        ExceptionDispatchInfo? captured = null;
+        DispatchQueue.MainQueue.DispatchSync(() =>
+        {
+            try { action(); }
+            catch (Exception ex) { captured = ExceptionDispatchInfo.Capture(ex); }
+        });
+        captured?.Throw();
+    }
+
+    static T RunOnMain<T>(Func<T> func)
+    {
+        if (NSThread.Current.IsMainThread)
+            return func();
+
+        var result = default(T)!;
+        ExceptionDispatchInfo? captured = null;
+        DispatchQueue.MainQueue.DispatchSync(() =>
+        {
+            try { result = func(); }
+            catch (Exception ex) { captured = ExceptionDispatchInfo.Capture(ex); }
+        });
+        captured?.Throw();
+        return result;
     }
 }
