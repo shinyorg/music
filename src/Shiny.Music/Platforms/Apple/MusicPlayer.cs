@@ -8,6 +8,9 @@ namespace Shiny.Music;
 
 public class MusicPlayer : IMusicPlayer
 {
+    // Temporary diagnostics — writes to the iOS device console. Remove once stop behavior is confirmed.
+    static void Log(string message) => Console.WriteLine($"[MusicPlayer] {message}");
+
     // MPMusicPlayerController and AVAudioSession are main-thread-affine, and this player is driven
     // from two threads: the app/UI thread (Play/Stop/Duck/dispose + the OS playback-state observer)
     // and a background slice-loop that polls Position/State and calls Seek/Stop. To make that safe we
@@ -19,6 +22,7 @@ public class MusicPlayer : IMusicPlayer
     MusicMetadata? currentTrack;
     volatile PlaybackState state = PlaybackState.Stopped;
     bool explicitStop;
+    bool observedPlaying;   // has the OS reported this track actually Playing since the last PlayCore?
 
     DuckScope? activeDuck;
     bool sessionActive;
@@ -46,8 +50,10 @@ public class MusicPlayer : IMusicPlayer
 
     void PlayCore(MusicMetadata track)
     {
+        Log($"PlayCore ENTER main={NSThread.Current.IsMainThread} id={track.Id} title={track.Title} playerState={this.player.PlaybackState}");
         this.StopCore();
-        this.explicitStop = false;   // clear the stop intent before issuing the new play
+        this.explicitStop = false;    // clear the stop intent before issuing the new play
+        this.observedPlaying = false; // this track hasn't actually started yet
 
         if (!string.IsNullOrEmpty(track.CatalogId))
         {
@@ -96,11 +102,13 @@ public class MusicPlayer : IMusicPlayer
 
     void StopCore()
     {
+        Log($"StopCore ENTER main={NSThread.Current.IsMainThread} state={this.state} playerState={this.player.PlaybackState}");
         this.explicitStop = true;
         this.EndDuckCore();
         this.player.Stop();
         this.currentTrack = null;
         this.SetState(PlaybackState.Stopped);
+        Log($"StopCore EXIT playerState={this.player.PlaybackState}");
 
         // Deliberately keep observing after a Stop(). SetQueue/Play on MPMusicPlayerController is
         // asynchronous, so a play() issued a moment earlier can still fire AFTER this Stop() and
@@ -185,8 +193,12 @@ public class MusicPlayer : IMusicPlayer
         // races in just after Stop() (e.g. a slice-loop's final poll) would resurrect stopped music.
         // Ignore seeks once stopped so Stop() reliably stays stopped.
         if (this.state == PlaybackState.Stopped)
+        {
+            Log($"Seek IGNORED (stopped) pos={position.TotalSeconds}s");
             return;
+        }
 
+        Log($"Seek pos={position.TotalSeconds}s main={NSThread.Current.IsMainThread}");
         this.player.CurrentPlaybackTime = position.TotalSeconds;
     });
 
@@ -230,12 +242,20 @@ public class MusicPlayer : IMusicPlayer
             // A queued play() from a just-started track can fire after Stop() (async SetQueue/Play);
             // force it back down so a Stop within a second or two of starting the track still wins.
             // Re-stopping settles to Stopped, at which point this branch becomes a no-op.
+            Log($"Observer while explicitStop — playerState={this.player.PlaybackState} (forcing stop if not Stopped)");
             if (this.player.PlaybackState != MPMusicPlaybackState.Stopped)
                 this.player.Stop();
             return;
         }
 
         var mpState = this.player.PlaybackState;
+        Log($"Observer mpState={mpState} state={this.state} observedPlaying={this.observedPlaying}");
+
+        // The track has genuinely started once the OS reports Playing. Until then, a transient
+        // Stopped is just the async SetQueue/Play spinning up — NOT a completion.
+        if (mpState == MPMusicPlaybackState.Playing)
+            this.observedPlaying = true;
+
         switch (mpState)
         {
             case MPMusicPlaybackState.Playing when this.state != PlaybackState.Playing:
@@ -246,7 +266,11 @@ public class MusicPlayer : IMusicPlayer
                 this.SetState(PlaybackState.Paused);
                 break;
 
-            case MPMusicPlaybackState.Stopped when this.state == PlaybackState.Playing:
+            // Only a real end-of-track: we must have seen it actually playing first. This stops a
+            // load-time transient Stopped from faking a completion and (critically) tearing down the
+            // observer — which would leave a late play() with nothing to re-stop it.
+            case MPMusicPlaybackState.Stopped when this.state == PlaybackState.Playing && this.observedPlaying:
+                this.EndDuckCore();   // music stopped on its own — reset the duck if one is active
                 this.SetState(PlaybackState.Stopped);
                 this.PlaybackCompleted?.Invoke(this, EventArgs.Empty);
                 this.StopObserving();

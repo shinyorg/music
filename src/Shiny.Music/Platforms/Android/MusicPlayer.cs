@@ -72,10 +72,7 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
 
     public void Stop()
     {
-        this.fadeCts?.Cancel();
-        this.fadeCts = null;
-        this.activeDuck = null;
-        this.currentVolume = 1f;
+        this.ResetDuckState();
 
         if (this.player != null)
         {
@@ -176,7 +173,18 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
 
     void OnPlaybackCompleted(object? sender, EventArgs e)
     {
+        this.ResetDuckState();   // music stopped on its own — reset the duck if one is active
         this.SetState(PlaybackState.Stopped);
         this.PlaybackCompleted?.Invoke(this, EventArgs.Empty);
+    }
+
+    // Clears any active duck and its in-flight fade, restoring the tracked volume. Idempotent —
+    // safe to call when nothing is ducked.
+    void ResetDuckState()
+    {
+        this.fadeCts?.Cancel();
+        this.fadeCts = null;
+        this.activeDuck = null;
+        this.currentVolume = 1f;
     }
 }
