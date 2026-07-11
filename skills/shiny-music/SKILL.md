@@ -54,6 +54,12 @@ triggers:
   - IsDucked
   - duck music
   - speak over music
+  - volume
+  - set volume
+  - read volume
+  - Volume
+  - VolumeChanged
+  - IsVolumeControlSupported
   - LRCLIB
   - Shiny.Music
   - music metadata
@@ -411,6 +417,8 @@ Seeks to the specified position. Android uses millisecond precision; Apple platf
 | `Position` | `TimeSpan` | Current playback position (`TimeSpan.Zero` if no track) |
 | `Duration` | `TimeSpan` | Total duration of current track (`TimeSpan.Zero` if no track) |
 | `IsDucked` | `bool` | Whether a duck scope is currently active |
+| `Volume` | `float` | Device media volume, 0.0–1.0. **Getter works on all platforms.** Setter works on **Android** only; on **Apple platforms it throws `NotSupportedException`** (no supported OS API to set system volume) |
+| `IsVolumeControlSupported` | `bool` | Whether setting `Volume` is supported: `true` on Android, `false` on Apple. Always check this before assigning `Volume` |
 
 #### Events
 
@@ -418,6 +426,7 @@ Seeks to the specified position. Android uses millisecond precision; Apple platf
 |-------|-------------|
 | `StateChanged` | Raised on state transitions (e.g., Playing -> Paused) |
 | `PlaybackCompleted` | Raised when a track finishes naturally (not via `Stop()`) |
+| `VolumeChanged` | `EventHandler<float>` — raised when the device media volume changes (hardware buttons, Control Center, or a successful `Volume` set); argument is the new volume 0.0–1.0 |
 
 #### Duck (audio ducking)
 
@@ -457,6 +466,31 @@ public record DuckOptions
 | `Level` | `double` | `0.2` | Target volume (0.0–1.0) while ducked. Android: applied exactly. Apple: ignored (OS-controlled) |
 | `FadeIn` | `TimeSpan` | `200ms` | Ramp-down duration when ducking starts. Android: honored. Apple: ignored |
 | `FadeOut` | `TimeSpan` | `200ms` | Ramp-up duration when the duck scope is disposed. Android: honored. Apple: ignored |
+
+#### Volume
+
+```csharp
+float Volume { get; set; }         // device media volume, 0.0–1.0
+bool IsVolumeControlSupported { get; }
+event EventHandler<float>? VolumeChanged;
+```
+
+`Volume` is the **device-wide system media volume** (0.0–1.0), independent of any active duck. Reading works on all platforms; **setting is platform-limited** — always guard with `IsVolumeControlSupported`:
+
+```csharp
+// Read anywhere
+var level = player.Volume;
+
+// Set only where supported (Android). On Apple the setter throws NotSupportedException.
+if (player.IsVolumeControlSupported)
+    player.Volume = 0.5f;
+
+// Observe changes (hardware buttons, Control Center, or a successful set)
+player.VolumeChanged += (_, v) => Console.WriteLine($"Volume is now {v:P0}");
+```
+
+- **Android**: `Volume` reads/writes the system `STREAM_MUSIC` level via `AudioManager` (settable). This is separate from ducking, which attenuates only this player's own output. `IsVolumeControlSupported` is `true`. The stream is integer-stepped, so a set value is quantized to the nearest step and reading it back may differ slightly. Setting silently (no system volume UI) still raises `VolumeChanged`.
+- **Apple platforms**: `Volume` reads `AVAudioSession.OutputVolume` (reliable). **The setter throws `NotSupportedException`** — iOS/Mac Catalyst expose no supported API to change the system volume (`MPMusicPlayerController.Volume` was deprecated in iOS 7 and is a no-op). `IsVolumeControlSupported` is `false`. Let the user adjust volume via the hardware buttons or an `MPVolumeView`. `VolumeChanged` fires from KVO on the audio session's output volume.
 
 ### ILyricsProvider
 

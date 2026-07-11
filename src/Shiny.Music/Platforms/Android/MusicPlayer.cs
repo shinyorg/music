@@ -1,5 +1,9 @@
+using Android.Content;
+using Android.Database;
 using Android.Media;
+using Android.Provider;
 using Uri = Android.Net.Uri;
+using Stream = Android.Media.Stream;
 
 namespace Shiny.Music;
 
@@ -13,6 +17,10 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
     CancellationTokenSource? fadeCts;
     float currentVolume = 1f;
 
+    AudioManager? audioManager;
+    VolumeObserver? volumeObserver;
+    int lastVolumeStep = -1;
+
     public PlaybackState State => this.state;
     public MusicMetadata? CurrentTrack => this.currentTrack;
     public bool IsDucked => this.activeDuck != null;
@@ -25,6 +33,66 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
 
     public event EventHandler<PlaybackState>? StateChanged;
     public event EventHandler? PlaybackCompleted;
+
+    AudioManager AudioManager => this.audioManager ??=
+        (AudioManager)Application.Context.GetSystemService(Context.AudioService)!;
+
+    // Volume maps to the device-wide STREAM_MUSIC level, NOT the per-player MediaPlayer.SetVolume attenuation
+    // used for ducking (currentVolume). The two are orthogonal: ducking scales this player's own output, while
+    // Volume moves the system music volume that the hardware buttons control.
+    public bool IsVolumeControlSupported => true;
+
+    public float Volume
+    {
+        get
+        {
+            var max = this.AudioManager.GetStreamMaxVolume(Stream.Music);
+            return max <= 0 ? 0f : this.AudioManager.GetStreamVolume(Stream.Music) / (float)max;
+        }
+        set
+        {
+            var max = this.AudioManager.GetStreamMaxVolume(Stream.Music);
+            var step = (int)Math.Round(Math.Clamp(value, 0f, 1f) * max);
+            // Flags 0 = change silently, without popping the system volume UI. This triggers the content observer,
+            // which raises VolumeChanged.
+            this.AudioManager.SetStreamVolume(Stream.Music, step, (VolumeNotificationFlags)0);
+        }
+    }
+
+    event EventHandler<float>? volumeChanged;
+    public event EventHandler<float>? VolumeChanged
+    {
+        add
+        {
+            this.volumeChanged += value;
+            this.EnsureVolumeObserver();
+        }
+        remove => this.volumeChanged -= value;
+    }
+
+    // Android has no KVO; watch the system settings URI and filter to actual STREAM_MUSIC changes. Registered
+    // lazily on first subscription and torn down in Dispose.
+    void EnsureVolumeObserver()
+    {
+        if (this.volumeObserver != null)
+            return;
+
+        this.lastVolumeStep = this.AudioManager.GetStreamVolume(Stream.Music);
+        this.volumeObserver = new VolumeObserver(this.OnSystemVolumeChanged);
+        Application.Context.ContentResolver!.RegisterContentObserver(
+            Settings.System.ContentUri!, true, this.volumeObserver);
+    }
+
+    void OnSystemVolumeChanged()
+    {
+        var step = this.AudioManager.GetStreamVolume(Stream.Music);
+        if (step == this.lastVolumeStep)
+            return;   // the observer fires for any system setting; ignore non-music-volume changes
+
+        this.lastVolumeStep = step;
+        var max = this.AudioManager.GetStreamMaxVolume(Stream.Music);
+        this.volumeChanged?.Invoke(this, max <= 0 ? 0f : step / (float)max);
+    }
 
     public Task PlayAsync(MusicMetadata track)
     {
@@ -163,6 +231,13 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
     public void Dispose()
     {
         this.Stop();
+
+        if (this.volumeObserver != null)
+        {
+            Application.Context.ContentResolver!.UnregisterContentObserver(this.volumeObserver);
+            this.volumeObserver.Dispose();
+            this.volumeObserver = null;
+        }
     }
 
     void SetState(PlaybackState newState)
@@ -186,5 +261,12 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
         this.fadeCts = null;
         this.activeDuck = null;
         this.currentVolume = 1f;
+    }
+
+    // Fires OnChange on the main looper whenever a system setting changes; OnSystemVolumeChanged filters to
+    // actual STREAM_MUSIC volume changes.
+    class VolumeObserver(Action onChanged) : ContentObserver(new Android.OS.Handler(Android.OS.Looper.MainLooper!))
+    {
+        public override void OnChange(bool selfChange) => onChanged();
     }
 }

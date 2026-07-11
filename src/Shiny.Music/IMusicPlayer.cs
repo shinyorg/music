@@ -66,6 +66,33 @@ public interface IMusicPlayer : IDisposable
     event EventHandler? PlaybackCompleted;
 
     /// <summary>
+    /// Gets a value indicating whether setting <see cref="Volume"/> is supported on the current platform.
+    /// <c>true</c> on Android; <c>false</c> on Apple platforms, where the OS exposes no supported API to change the
+    /// system volume. Reading <see cref="Volume"/> and observing <see cref="VolumeChanged"/> work on all platforms.
+    /// </summary>
+    bool IsVolumeControlSupported { get; }
+
+    /// <summary>
+    /// Gets or sets the device media volume, normalized 0.0–1.0. This is the system music-stream volume (device-wide),
+    /// independent of any active duck.
+    /// </summary>
+    /// <remarks>
+    /// Reading works on all platforms. Setting is only supported where <see cref="IsVolumeControlSupported"/> is
+    /// <c>true</c>. On Android the underlying stream is integer-stepped, so a set value is quantized to the nearest step
+    /// and reading it back may differ slightly. On Apple platforms the setter throws <see cref="NotSupportedException"/>,
+    /// as iOS and Mac Catalyst provide no supported API to change the system volume — let the user adjust it with the
+    /// hardware buttons or an <c>MPVolumeView</c>.
+    /// </remarks>
+    /// <exception cref="NotSupportedException">Thrown by the setter on Apple platforms; guard with <see cref="IsVolumeControlSupported"/>.</exception>
+    float Volume { get; set; }
+
+    /// <summary>
+    /// Raised when the device media volume changes — via the hardware buttons, Control Center, or a successful
+    /// <see cref="Volume"/> set. The argument is the new volume normalized 0.0–1.0.
+    /// </summary>
+    event EventHandler<float>? VolumeChanged;
+
+    /// <summary>
     /// Gets a value indicating whether a duck scope is currently active.
     /// </summary>
     bool IsDucked { get; }

@@ -252,6 +252,9 @@ Generated tools (only for areas you opt-in to):
 | `Position` / `Duration` | Current position and total duration |
 | `Duck(options?)` | Lowers the playing music so an announcement can be heard over top; returns an `IAsyncDisposable` scope that restores full volume when disposed. Only one duck is active at a time — calling `Duck` while one is active returns a no-op scope |
 | `IsDucked` | Whether a duck scope is currently active |
+| `Volume` | Gets/sets the device media volume (0.0–1.0). **Reading works on all platforms.** Setting works on **Android** only; the **iOS/Mac Catalyst** setter throws `NotSupportedException` (Apple exposes no supported API to change system volume) — guard with `IsVolumeControlSupported` |
+| `IsVolumeControlSupported` | Whether setting `Volume` is supported: `true` on Android, `false` on Apple platforms |
+| `VolumeChanged` | Event (`float`, 0.0–1.0) fired when the device media volume changes — hardware buttons, Control Center, or a successful `Volume` set |
 | `StateChanged` | Event fired when playback state changes |
 | `PlaybackCompleted` | Event fired when a track finishes |
 

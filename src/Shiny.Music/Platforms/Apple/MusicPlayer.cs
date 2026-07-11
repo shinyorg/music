@@ -19,6 +19,7 @@ public class MusicPlayer : IMusicPlayer
     // ducking and Stop() behaved non-deterministically under a team walkout's concurrent load.
     readonly MPMusicPlayerController player = MPMusicPlayerController.ApplicationMusicPlayer;
     NSObject? stateObserver;
+    IDisposable? volumeObserver;
     MusicMetadata? currentTrack;
     volatile PlaybackState state = PlaybackState.Stopped;
     bool explicitStop;
@@ -41,6 +42,49 @@ public class MusicPlayer : IMusicPlayer
 
     public event EventHandler<PlaybackState>? StateChanged;
     public event EventHandler? PlaybackCompleted;
+
+    // Apple exposes no supported API to set the system volume: MPMusicPlayerController.Volume was deprecated in
+    // iOS 7 and is a no-op, and AVAudioSession.OutputVolume is read-only. So reading works, setting does not.
+    public bool IsVolumeControlSupported => false;
+
+    public float Volume
+    {
+        // OutputVolume is the reliable system-volume read; it reflects the current output route (same value the
+        // volume HUD shows). Requires the session to be active, which the VolumeChanged observer ensures.
+        get => RunOnMain(() => AVAudioSession.SharedInstance().OutputVolume);
+        set => throw new NotSupportedException(
+            "Setting the system volume is not supported on Apple platforms. Check IMusicPlayer.IsVolumeControlSupported before setting, and let the user adjust volume with the hardware buttons or an MPVolumeView.");
+    }
+
+    event EventHandler<float>? volumeChanged;
+    public event EventHandler<float>? VolumeChanged
+    {
+        add
+        {
+            this.volumeChanged += value;
+            this.EnsureVolumeObserver();
+        }
+        remove => this.volumeChanged -= value;
+    }
+
+    // KVO on AVAudioSession.outputVolume — fires for hardware buttons and Control Center. OutputVolume only
+    // updates while the session is active, so activate it (MixWithOthers, so we don't disturb other audio) if it
+    // isn't already. Registered lazily on first subscription and disposed in Dispose.
+    void EnsureVolumeObserver() => RunOnMain(() =>
+    {
+        if (this.volumeObserver != null)
+            return;
+
+        var session = AVAudioSession.SharedInstance();
+        if (!this.sessionActive)
+            this.ApplyCategory(AVAudioSessionCategoryOptions.MixWithOthers);
+
+        this.volumeObserver = session.AddObserver("outputVolume", NSKeyValueObservingOptions.New, change =>
+        {
+            var volume = (change.NewValue as NSNumber)?.FloatValue ?? session.OutputVolume;
+            this.volumeChanged?.Invoke(this, volume);
+        });
+    });
 
     public Task PlayAsync(MusicMetadata track)
     {
@@ -206,6 +250,8 @@ public class MusicPlayer : IMusicPlayer
     {
         this.StopCore();
         this.StopObserving();
+        this.volumeObserver?.Dispose();   // removes the KVO registration
+        this.volumeObserver = null;
     });
 
     void SetState(PlaybackState newState)
