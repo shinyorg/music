@@ -241,20 +241,21 @@
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
+
+                    <!-- Loading Overlay: covers only the list area so the category selector
+                         and search bar stay tappable while a load is in flight. -->
+                    <Grid IsVisible="{Binding IsBusy}"
+                          BackgroundColor="{AppThemeBinding Light=#80FFFFFF, Dark=#80000000}"
+                          InputTransparent="False">
+                        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           HeightRequest="48"
+                                           WidthRequest="48"
+                                           Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                    </Grid>
                 </Grid>
 
-            </Grid>
-
-            <!-- Loading Overlay -->
-            <Grid IsVisible="{Binding IsBusy}"
-                  BackgroundColor="{AppThemeBinding Light=#80FFFFFF, Dark=#80000000}"
-                  InputTransparent="False">
-                <ActivityIndicator IsRunning="{Binding IsBusy}"
-                                   HorizontalOptions="Center"
-                                   VerticalOptions="Center"
-                                   HeightRequest="48"
-                                   WidthRequest="48"
-                                   Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
             </Grid>
 
             <!-- Playlist Picker Overlay -->

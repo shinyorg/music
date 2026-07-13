@@ -16,12 +16,12 @@ public partial class TrackItem : ObservableObject
 
     public TrackItem(MusicMetadata track) => Track = track;
 
-    public async Task LoadAlbumArt(IMediaLibrary library)
+    public async Task LoadAlbumArt(IMediaLibrary library, CancellationToken cancellationToken = default)
     {
         try
         {
             var path = await library.GetAlbumArtPathAsync(Track.Id);
-            if (path != null)
+            if (path != null && !cancellationToken.IsCancellationRequested)
                 AlbumArt = ImageSource.FromFile(path);
         }
         catch { }
