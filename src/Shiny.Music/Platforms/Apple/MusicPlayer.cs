@@ -104,7 +104,6 @@ public class MusicPlayer : IMusicPlayer
             // Streaming catalog track (from SearchCatalogAsync) — enqueue by catalog id.
             // Requires an active Apple Music subscription; the item need not be in the local library.
             this.player.SetQueue(new MPMusicPlayerStoreQueueDescriptor(new[] { track.CatalogId }));
-            this.player.Play();
         }
         else
         {
@@ -116,12 +115,30 @@ public class MusicPlayer : IMusicPlayer
                 ?? throw new InvalidOperationException("Track not found in music library.");
 
             this.player.SetQueue(new MPMediaItemCollection(new[] { item }));
-            this.player.Play();
         }
 
         this.currentTrack = track;
         this.SetState(PlaybackState.Playing);
         this.StartObserving();
+
+        this.player.Play();
+
+        // SetQueue loads the queue ASYNCHRONOUSLY, so the Play() above can land before the queue is
+        // ready and silently no-op — the track never starts. A sliced play hid this: the caller's
+        // follow-up Seek (setting CurrentPlaybackTime) kicks a loaded-but-idle player awake, so it
+        // started anyway. A full-length play issues no such Seek, so it just sat there until the
+        // user nudged the position by hand. Retry Play() once the queue reports ready. The guards
+        // keep this retry from resurrecting a track a Stop() cancelled meanwhile, or from
+        // double-triggering one the immediate Play() already got going (Play() resumes from the
+        // current time, so it never rewinds a seek the caller applied).
+        this.player.PrepareToPlay(_ => RunOnMain(() =>
+        {
+            if (!this.explicitStop && this.state == PlaybackState.Playing && !this.observedPlaying)
+            {
+                Log("PrepareToPlay completion — queue ready, issuing Play() retry");
+                this.player.Play();
+            }
+        }));
     }
 
     public void Pause() => RunOnMain(() =>
@@ -206,16 +223,24 @@ public class MusicPlayer : IMusicPlayer
     }
 
     // Release the session so the ducked music (and everything else) returns to normal. Runs as part of
-    // StopCore (already on the main thread), when the app audio is idle and deactivation succeeds.
+    // StopCore (already on the main thread).
     void EndDuckCore()
     {
         this.activeDuck = null;
         if (!this.sessionActive)
             return;
 
-        AVAudioSession
-            .SharedInstance()
-            .SetActive(false, AVAudioSessionSetActiveOptions.NotifyOthersOnDeactivation, out _);
+        var session = AVAudioSession.SharedInstance();
+
+        // Un-duck FIRST by switching to MixWithOthers. Deactivation (SetActive(false)) fails with
+        // IsBusy while app audio is still draining — exactly the case a Stop() lands in when it
+        // interrupts a walkout mid-announcement — and if it fails here the session would be left
+        // ACTIVE with DuckOthers while sessionActive is cleared to false, so nothing ever lifts it:
+        // the *next* walkout song then starts already ducked ("really quiet"). Re-applying the
+        // category has no such failure mode (see RestoreAsync), so it reliably releases the duck
+        // even when the deactivate below can't run yet.
+        session.SetCategory(AVAudioSessionCategory.Playback, AVAudioSessionCategoryOptions.MixWithOthers, out _);
+        session.SetActive(false, AVAudioSessionSetActiveOptions.NotifyOthersOnDeactivation, out _);
         this.sessionActive = false;
     }
 
