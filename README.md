@@ -246,6 +246,30 @@ await player.PlayAsync(track);
 player.Seek(startAt);
 ```
 
+### VU meter (`IVuMeter`)
+
+`IMusicPlayer.CreateVuMeter(...)` returns an event-based VU meter for the current playback:
+
+- **Android** — a **real audio-output tap** (`android.media.audiofx.Visualizer`) when the app holds the `RECORD_AUDIO` permission (`IsLive == true`). Add `<uses-permission android:name="android.permission.RECORD_AUDIO" />` and request it at runtime; without it the meter falls back to the implied version.
+- **Apple** — the **implied** meter (`IsLive == false`): levels are synthesized from the `AudioLevels` analysis at the current playback position, because the system player (`MPMusicPlayerController`) exposes no output tap.
+
+Either way you consume one plain event:
+
+```csharp
+var levels = await library.AnalyzeLevelsAsync(track.Id);   // needed for the implied (Apple) meter
+var meter = player.CreateVuMeter(levels);                  // interval defaults to 50ms
+meter.LevelChanged += (_, level) =>
+{
+    // level.Rms / level.Peak are 0.0–1.0; marshal to the UI thread before drawing
+    UpdateVuBars(level.Rms, level.Peak);
+};
+meter.Start();
+// ... later
+meter.Dispose();
+```
+
+You can also sample a level for any position directly — `audioLevels.SampleAt(position)` returns a `VuLevel` — which is exactly what the implied meter does under the hood.
+
 ## API Reference
 
 ### `IMediaLibrary`
@@ -284,6 +308,7 @@ player.Seek(startAt);
 | `Resume()` | Resumes after pausing |
 | `Stop()` | Stops playback and releases the track |
 | `Seek(position)` | Seeks to a position in the track |
+| `CreateVuMeter(implied?, interval?)` | Creates an `IVuMeter` (`LevelChanged` event) — a **real output tap** on Android (Visualizer, needs `RECORD_AUDIO`), or the **implied** meter (analysis synced to position) on Apple. Pass the `AnalyzeLevelsAsync` result for the implied meter |
 | `State` | Current `PlaybackState` (Stopped/Playing/Paused) |
 | `CurrentTrack` | The currently loaded `MusicMetadata` |
 | `Position` / `Duration` | Current position and total duration |

@@ -56,6 +56,28 @@ public interface IMusicPlayer : IDisposable
     void Seek(TimeSpan position);
 
     /// <summary>
+    /// Creates an <see cref="IVuMeter"/> that raises periodic level events for the current playback.
+    /// <para>
+    /// On <b>Android</b> this is a <b>real audio-output tap</b> (<c>android.media.audiofx.Visualizer</c>) when
+    /// the app has the <c>RECORD_AUDIO</c> permission — the levels reflect what is actually being output
+    /// (<see cref="IVuMeter.IsLive"/> is <c>true</c>). Without that permission it falls back to the implied meter.
+    /// On <b>Apple platforms</b> it is always the <b>implied meter</b>: levels are synthesized from
+    /// <paramref name="implied"/> at the current playback position, because the system music player
+    /// (<c>MPMusicPlayerController</c>) exposes no output tap (<see cref="IVuMeter.IsLive"/> is <c>false</c>).
+    /// </para>
+    /// The returned meter does not start until you call <see cref="IVuMeter.Start"/>. Dispose it when done.
+    /// </summary>
+    /// <param name="implied">
+    /// The offline analysis (from <see cref="IMediaLibrary.AnalyzeLevelsAsync"/>) used to synthesize levels for
+    /// the implied meter — required on Apple and used as the Android fallback. When the meter is live (Android
+    /// with permission) this is ignored and may be <c>null</c>.
+    /// </param>
+    /// <param name="interval">How often to emit levels. Defaults to 50&#160;ms. On Android this maps to the
+    /// <c>Visualizer</c> capture rate (clamped to the device maximum).</param>
+    /// <returns>A stopped <see cref="IVuMeter"/>; call <see cref="IVuMeter.Start"/> to begin.</returns>
+    IVuMeter CreateVuMeter(AudioLevels? implied = null, TimeSpan? interval = null);
+
+    /// <summary>
     /// Raised when the playback state changes (e.g., from <see cref="PlaybackState.Playing"/> to <see cref="PlaybackState.Paused"/>).
     /// </summary>
     event EventHandler<PlaybackState>? StateChanged;

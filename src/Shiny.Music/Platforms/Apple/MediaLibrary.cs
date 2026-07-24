@@ -341,8 +341,9 @@ public class MediaLibrary : IMediaLibrary
     {
         var win = window ?? TimeSpan.FromMilliseconds(500);
 
-        return Task.Run(() =>
+        return Task.Run(async () =>
         {
+            string? tempPath = null;
             try
             {
                 if (!ulong.TryParse(trackId, out var pid))
@@ -354,19 +355,45 @@ public class MediaLibrary : IMediaLibrary
                 if (assetUrl == null)
                     return null; // cloud-only / DRM item with no local asset URL
 
-                // Runs on a background thread, so the synchronous track access (which blocks until the
-                // asset's properties load) can never freeze the UI; the caller also applies a timeout.
-                var asset = new AVUrlAsset(assetUrl);
-                var track = asset.GetTracks(AVMediaTypes.Audio).FirstOrDefault();
+                var sourceAsset = new AVUrlAsset(assetUrl);
+                if (!sourceAsset.Exportable)
+                    return null; // DRM-protected — cannot decode to PCM
+
+                // Export to a temporary file and analyze THAT, rather than reading the ipod-library asset
+                // directly: while the system player (MPMusicPlayerController) is playing the track it owns
+                // that asset, and an AVAssetReader on it fails — so analysis would only work while stopped.
+                // A separate temp file is independent of playback.
+                tempPath = Path.Combine(Path.GetTempPath(), $"shinymusic-analyze-{Guid.NewGuid():N}.m4a");
+                var session = new AVAssetExportSession(sourceAsset, AVAssetExportSessionPreset.AppleM4A)
+                {
+                    OutputFileType = AVFileTypes.AppleM4a.GetConstant()?.ToString(),
+                    OutputUrl = NSUrl.FromFilename(tempPath)
+                };
+
+                var exported = new TaskCompletionSource<bool>();
+                session.ExportAsynchronously(() => exported.SetResult(session.Status == AVAssetExportSessionStatus.Completed));
+                if (!await exported.Task.ConfigureAwait(false))
+                    return null;
+
+                var fileAsset = new AVUrlAsset(NSUrl.FromFilename(tempPath));
+                var track = fileAsset.GetTracks(AVMediaTypes.Audio).FirstOrDefault();
                 if (track == null)
                     return null;
 
                 var duration = TimeSpan.FromSeconds(item!.PlaybackDuration);
-                return DecodeLevels(asset, track, duration, win);
+                return DecodeLevels(fileAsset, track, duration, win);
             }
             catch
             {
                 return null;
+            }
+            finally
+            {
+                if (tempPath != null)
+                {
+                    try { File.Delete(tempPath); }
+                    catch { /* best-effort cleanup */ }
+                }
             }
         });
     }

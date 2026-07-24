@@ -149,8 +149,11 @@ public interface IMediaLibrary
     /// Analyzes a track's amplitude <b>offline</b> — decoding it to PCM to measure per-window RMS and peak
     /// levels — <b>without playing it</b>. Use the result to draw a waveform / VU meter, or to locate the
     /// loud and quiet regions of a song (e.g. finding the instrumental solo) via <see cref="AudioLevels.Sections"/>.
-    /// On Apple platforms the track is exported and read with <c>AVAudioFile</c>; on Android it is decoded with
-    /// <c>MediaExtractor</c> + <c>MediaCodec</c>. The channels are down-mixed for a single-envelope result.
+    /// The track is first copied to a temporary file which is then decoded (Apple: exported via
+    /// <c>AVAssetExportSession</c> and read with <c>AVAssetReader</c>; Android: copied and decoded with
+    /// <c>MediaExtractor</c> + <c>MediaCodec</c>). Decoding a temp copy — rather than the live asset the OS
+    /// music player may be holding — lets analysis run even while the same track is playing. The channels are
+    /// down-mixed for a single-envelope result.
     /// <para>
     /// Returns <c>null</c> when the track cannot be decoded to PCM — DRM-protected Apple Music content and
     /// streaming catalog items (empty <see cref="MusicMetadata.ContentUri"/>), the same tracks

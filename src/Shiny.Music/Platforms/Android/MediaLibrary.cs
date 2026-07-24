@@ -148,25 +148,46 @@ public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) :
             if (track is null || string.IsNullOrEmpty(track.ContentUri))
                 return (AudioLevels?)null;
 
+            string? tempPath = null;
             try
             {
-                return DecodeLevels(Uri.Parse(track.ContentUri)!, track.Duration, win);
+                // Copy to a private temp file and analyze THAT, rather than the live content URI: while the
+                // MediaPlayer is playing the same URI, a second MediaExtractor/MediaCodec on it can contend
+                // and fail — so analysis would only work while playback is stopped. A temp file is independent.
+                tempPath = Path.Combine(Path.GetTempPath(), $"shinymusic-analyze-{Guid.NewGuid():N}.audio");
+                using (var input = Resolver.OpenInputStream(Uri.Parse(track.ContentUri)!))
+                {
+                    if (input == null)
+                        return null;
+                    using var output = File.Create(tempPath);
+                    input.CopyTo(output);
+                }
+
+                return DecodeLevels(tempPath, track.Duration, win);
             }
             catch
             {
                 return null;
             }
+            finally
+            {
+                if (tempPath != null)
+                {
+                    try { File.Delete(tempPath); }
+                    catch { /* best-effort cleanup */ }
+                }
+            }
         });
     }
 
-    static AudioLevels? DecodeLevels(Uri uri, TimeSpan duration, TimeSpan window)
+    static AudioLevels? DecodeLevels(string filePath, TimeSpan duration, TimeSpan window)
     {
         MediaExtractor? extractor = null;
         MediaCodec? codec = null;
         try
         {
             extractor = new MediaExtractor();
-            extractor.SetDataSource(Application.Context, uri, (IDictionary<string, string>?)null);
+            extractor.SetDataSource(filePath);
 
             var audioTrack = -1;
             MediaFormat? format = null;

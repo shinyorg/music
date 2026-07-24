@@ -271,6 +271,11 @@ public class MusicPlayer : IMusicPlayer
         this.player.CurrentPlaybackTime = position.TotalSeconds;
     });
 
+    // Apple has no output tap for MPMusicPlayerController, so the meter is always the implied one:
+    // it samples the offline analysis at the current playback position.
+    public IVuMeter CreateVuMeter(AudioLevels? implied = null, TimeSpan? interval = null)
+        => new Internal.SampledVuMeter(this, implied, interval ?? TimeSpan.FromMilliseconds(50));
+
     public void Dispose() => RunOnMain(() =>
     {
         this.StopCore();

@@ -14,11 +14,14 @@ public partial class WaveformPage : ContentPage
         VuView.Drawable = new VuMeterDrawable(viewModel);
     }
 
+    bool navigatingAway;
+
     protected override async void OnAppearing()
     {
         base.OnAppearing();
         this.vm.SetDispatcher(Dispatcher);
         this.vm.Invalidated += OnInvalidated;
+        this.vm.Unavailable += OnUnavailable;
         await this.vm.InitializeAsync();
     }
 
@@ -26,7 +29,18 @@ public partial class WaveformPage : ContentPage
     {
         base.OnDisappearing();
         this.vm.Invalidated -= OnInvalidated;
+        this.vm.Unavailable -= OnUnavailable;
         this.vm.Stop();
+    }
+
+    async void OnUnavailable(object? sender, string message)
+    {
+        if (this.navigatingAway)
+            return;
+        this.navigatingAway = true;
+
+        await DisplayAlert("Waveform unavailable", message, "OK");
+        await Navigation.PopModalAsync();
     }
 
     void OnInvalidated(object? sender, EventArgs e)

@@ -30,4 +30,31 @@ public record AudioLevels(
     IReadOnlyList<float> Rms,
     IReadOnlyList<float> Peak,
     IReadOnlyList<AudioSection> Sections
-);
+)
+{
+    /// <summary>
+    /// Returns the <see cref="VuLevel"/> for a playback position by indexing the envelope at that point.
+    /// This is the "implied" VU used where a live output tap isn't available (Apple platforms). Positions
+    /// outside the track clamp to the nearest window.
+    /// </summary>
+    /// <param name="position">The playback position to sample.</param>
+    public VuLevel SampleAt(TimeSpan position)
+    {
+        if (this.Rms.Count == 0 || this.Window <= TimeSpan.Zero)
+            return VuLevel.Silent with { Position = position };
+
+        var index = Math.Clamp((int)(position.TotalSeconds / this.Window.TotalSeconds), 0, this.Rms.Count - 1);
+
+        var energy = AudioEnergy.Silent;
+        foreach (var section in this.Sections)
+        {
+            if (position >= section.Start && position < section.End)
+            {
+                energy = section.Energy;
+                break;
+            }
+        }
+
+        return new VuLevel(position, this.Rms[index], this.Peak[index], energy);
+    }
+}

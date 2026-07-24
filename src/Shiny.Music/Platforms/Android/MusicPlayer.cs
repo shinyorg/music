@@ -2,6 +2,7 @@ using Android.Content;
 using Android.Database;
 using Android.Media;
 using Android.Provider;
+using Shiny.Music.Internal;
 using Uri = Android.Net.Uri;
 using Stream = Android.Media.Stream;
 
@@ -12,6 +13,14 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
     Android.Media.MediaPlayer? player;
     MusicMetadata? currentTrack;
     PlaybackState state = PlaybackState.Stopped;
+    bool prepared;
+    int audioSessionId = -1;
+
+    // A stable audio session id reused by every MediaPlayer, so a Visualizer-based VU meter attached to it
+    // keeps working across track changes (each PlayAsync creates a fresh MediaPlayer).
+    internal int AudioSessionId => this.audioSessionId >= 0
+        ? this.audioSessionId
+        : (this.audioSessionId = this.AudioManager.GenerateAudioSessionId());
 
     DuckScope? activeDuck;
     CancellationTokenSource? fadeCts;
@@ -25,11 +34,13 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
     public MusicMetadata? CurrentTrack => this.currentTrack;
     public bool IsDucked => this.activeDuck != null;
 
+    // Guarded on `prepared`: while a track is still preparing (async), CurrentPosition/Duration are not
+    // valid to read, so report Zero until the Prepared callback fires.
     public TimeSpan Position =>
-        this.player != null ? TimeSpan.FromMilliseconds(this.player.CurrentPosition) : TimeSpan.Zero;
+        this.player != null && this.prepared ? TimeSpan.FromMilliseconds(this.player.CurrentPosition) : TimeSpan.Zero;
 
     public TimeSpan Duration =>
-        this.player != null ? TimeSpan.FromMilliseconds(this.player.Duration) : TimeSpan.Zero;
+        this.player != null && this.prepared ? TimeSpan.FromMilliseconds(this.player.Duration) : TimeSpan.Zero;
 
     public event EventHandler<PlaybackState>? StateChanged;
     public event EventHandler? PlaybackCompleted;
@@ -98,8 +109,10 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
     {
         this.Stop();
 
-        this.player = new Android.Media.MediaPlayer();
-        this.player.SetAudioAttributes(
+        var mp = new Android.Media.MediaPlayer();
+        this.player = mp;
+        mp.AudioSessionId = this.AudioSessionId;   // stable session so a VU Visualizer survives track changes
+        mp.SetAudioAttributes(
             new AudioAttributes.Builder()!
                 .SetContentType(AudioContentType.Music)!
                 .SetUsage(AudioUsageKind.Media)!
@@ -107,15 +120,31 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
         );
 
         var uri = Uri.Parse(track.ContentUri)!;
-        this.player.SetDataSource(Application.Context, uri);
-        this.player.Prepare();
-        this.player.Start();
+        mp.SetDataSource(Application.Context, uri);
+        mp.Completion += this.OnPlaybackCompleted;
+
+        // Prepare asynchronously so the call returns as soon as playback is *initiated*, rather than
+        // blocking the caller thread until the track is buffered/ready (which the synchronous Prepare()
+        // did). This matches the Apple implementation's fire-and-forget behaviour. Playback starts from
+        // the Prepared callback, guarded against a Stop()/new PlayAsync that swapped the player first.
+        mp.Prepared += (_, _) =>
+        {
+            if (!ReferenceEquals(this.player, mp))
+                return;   // superseded before preparation completed
+            try
+            {
+                this.prepared = true;
+                mp.Start();
+                this.SetState(PlaybackState.Playing);
+            }
+            catch (Java.Lang.IllegalStateException)
+            {
+                // player was torn down underneath us — ignore
+            }
+        };
+        mp.PrepareAsync();
 
         this.currentTrack = track;
-        this.SetState(PlaybackState.Playing);
-
-        this.player.Completion += this.OnPlaybackCompleted;
-
         _ = playCounts.IncrementAsync(track.Id);
         return Task.CompletedTask;
     }
@@ -145,12 +174,13 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
         if (this.player != null)
         {
             this.player.Completion -= this.OnPlaybackCompleted;
-            if (this.player.IsPlaying)
+            if (this.prepared && this.player.IsPlaying)
                 this.player.Stop();
             this.player.Reset();
             this.player.Release();
             this.player = null;
         }
+        this.prepared = false;
         this.currentTrack = null;
         this.SetState(PlaybackState.Stopped);
     }
@@ -222,10 +252,32 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
     {
         // Ignore seeks once stopped: a slice-loop's final poll can race in just after Stop(), and
         // seeking a stopped/released MediaPlayer throws IllegalStateException (or could revive it).
-        if (this.state == PlaybackState.Stopped)
+        // Also ignore before the track has finished preparing (seeking an unprepared player throws).
+        if (this.state == PlaybackState.Stopped || !this.prepared)
             return;
 
         this.player?.SeekTo((int)position.TotalMilliseconds);
+    }
+
+    public IVuMeter CreateVuMeter(AudioLevels? implied = null, TimeSpan? interval = null)
+    {
+        var iv = interval ?? TimeSpan.FromMilliseconds(50);
+
+        // Prefer a real output tap (Visualizer) when the app holds RECORD_AUDIO; otherwise fall back to the
+        // implied meter (which needs the offline analysis).
+        if (VisualizerVuMeter.HasPermission())
+        {
+            try
+            {
+                return new VisualizerVuMeter(this, this.AudioSessionId, iv);
+            }
+            catch
+            {
+                // Visualizer unavailable (missing manifest permission, device restriction) — fall back.
+            }
+        }
+
+        return new SampledVuMeter(this, implied, iv);
     }
 
     public void Dispose()

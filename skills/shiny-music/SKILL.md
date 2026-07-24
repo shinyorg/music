@@ -28,6 +28,11 @@ triggers:
   - GetInstrumentalGaps
   - guitar solo
   - play from timestamp
+  - VU meter
+  - IVuMeter
+  - VuLevel
+  - CreateVuMeter
+  - audio levels event
   - copy track
   - audio library
   - MediaStore audio
@@ -319,7 +324,7 @@ Task<AudioLevels?> AnalyzeLevelsAsync(string trackId, TimeSpan? window = null);
 
 Decodes a track to PCM **offline — without playing it** — and measures its amplitude. Use it to draw a waveform / VU meter, or to locate parts of a song (an intro, a chorus, a solo). Returns `null` for DRM-protected / streaming-only tracks that cannot be decoded to PCM (the same tracks `CopyTrackAsync` refuses) — **always null-check the result**.
 
-- **Android**: decodes via `MediaExtractor` + `MediaCodec`. **Apple platforms**: reads via `AVAssetReader` (no export, no playback). Both down-mix to a single mono envelope at a fixed rate, so results are comparable across platforms.
+- Both platforms copy the track to a **temporary file** and decode that (Android: `MediaExtractor` + `MediaCodec`; Apple: `AVAssetExportSession` → `AVAssetReader`), which lets analysis run **even while the same track is playing** (the live asset is otherwise held by the OS music player). Both down-mix to a single mono envelope at a fixed rate, so results are comparable across platforms.
 - `window` is the analysis resolution (duration per RMS/peak entry); defaults to 500 ms.
 
 `AudioLevels` contains:
@@ -447,6 +452,29 @@ void Seek(TimeSpan position);
 ```
 
 Seeks to the specified position. Android uses millisecond precision; Apple platforms use second precision.
+
+#### CreateVuMeter
+
+```csharp
+IVuMeter CreateVuMeter(AudioLevels? implied = null, TimeSpan? interval = null);
+```
+
+Creates an event-based VU meter for the current playback. Call `Start()`, subscribe to `LevelChanged`, and `Dispose()` when done.
+
+- **Android**: a **real audio-output tap** via `android.media.audiofx.Visualizer` when the app holds `RECORD_AUDIO` (`IsLive == true`). Add `<uses-permission android:name="android.permission.RECORD_AUDIO" />` and request it at runtime; without it, it falls back to the implied meter.
+- **Apple**: the **implied** meter (`IsLive == false`) — levels are synthesized from `implied` (the `AnalyzeLevelsAsync` result) at the current playback position, since `MPMusicPlayerController` exposes no output tap. **Pass the analysis** or the meter emits silence.
+
+`LevelChanged` may fire on a background thread — marshal to the UI before drawing. Each `VuLevel` has `Position`, `Rms`, `Peak` (0..1), and `Energy`.
+
+```csharp
+var levels = await _library.AnalyzeLevelsAsync(track.Id);
+var meter = _player.CreateVuMeter(levels);
+meter.LevelChanged += (_, level) =>
+    MainThread.BeginInvokeOnMainThread(() => DrawVu(level.Rms, level.Peak));
+meter.Start();
+```
+
+For a specific position without a running meter, use `audioLevels.SampleAt(position)` → `VuLevel`.
 
 #### Properties
 

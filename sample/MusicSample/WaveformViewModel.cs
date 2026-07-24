@@ -5,20 +5,22 @@ namespace MusicSample;
 
 /// <summary>
 /// Drives the waveform + VU page. It runs an offline <see cref="IMediaLibrary.AnalyzeLevelsAsync"/> on the
-/// currently-playing track, then a fast dispatcher timer advances the play-head and reads the current
-/// window's RMS / peak from the precomputed envelope to animate the VU meter — all without any extra
-/// playback or audio-tap.
+/// currently-playing track for the waveform, and drives the VU meter from an <see cref="IVuMeter"/> — a real
+/// audio-output tap on Android, or the "implied" (analysis-synced-to-position) meter on Apple. A dispatcher
+/// timer advances the play-head / progress.
 /// </summary>
 public partial class WaveformViewModel : ObservableObject
 {
-    // A fine analysis window makes the VU meter lively; the waveform itself is down-sampled to the view width.
+    // A fine analysis window makes the implied VU lively; the waveform itself is down-sampled to the view width.
     static readonly TimeSpan AnalysisWindow = TimeSpan.FromMilliseconds(80);
 
     readonly IMusicPlayer player;
     readonly IMediaLibrary library;
     IDispatcherTimer? timer;
     IDispatcher? dispatcher;
+    IVuMeter? vuMeter;
     bool isScrubbing;
+    float peakHold;
 
     public WaveformViewModel(IMusicPlayer player, IMediaLibrary library)
     {
@@ -45,14 +47,15 @@ public partial class WaveformViewModel : ObservableObject
     /// <summary>0..1 play-head position across the track (also used while scrubbing).</summary>
     public double Progress { get; private set; }
 
-    /// <summary>Current VU levels (0..1) at the play-head, with a little peak-hold decay for a natural meter feel.</summary>
+    /// <summary>Current VU levels (0..1), from the <see cref="IVuMeter"/> with a little peak-hold decay.</summary>
     public float VuRms { get; private set; }
     public float VuPeak { get; private set; }
 
-    float peakHold;
-
-    /// <summary>Raised whenever the visuals should be redrawn (play-head moved, levels changed, analysis loaded).</summary>
+    /// <summary>Raised whenever the visuals should be redrawn (play-head moved, VU changed, analysis loaded).</summary>
     public event EventHandler? Invalidated;
+
+    /// <summary>Raised (with a user-facing message) when the track cannot be analyzed — the page shows an alert and navigates back.</summary>
+    public event EventHandler<string>? Unavailable;
 
     public void SetDispatcher(IDispatcher disp) => this.dispatcher = disp;
 
@@ -61,58 +64,89 @@ public partial class WaveformViewModel : ObservableObject
         var track = this.player.CurrentTrack;
         if (track is null)
         {
-            this.IsBusy = false;
-            this.StatusText = "No song is playing.";
-            RaiseInvalidated();
+            RaiseUnavailable("No song is playing.");
             return;
         }
 
         this.DurationText = FormatTime(this.player.Duration);
-
-        // Make the page interactive immediately: the plain progress bar + seek work right away and the
-        // play-head starts moving, while the (whole-song) analysis runs in the background and fills in the
-        // waveform + VU when it's ready. This is what keeps it from looking like it "loads forever".
-        this.IsBusy = false;
         this.StatusText = "Analyzing waveform…";
-        StartTimer();
-        Tick();
+        this.IsBusy = true;
 
         AudioLevels? levels = null;
-        var timedOut = false;
         try
         {
             var analyze = this.library.AnalyzeLevelsAsync(track.Id, AnalysisWindow);
+            // Guard against a decode that stalls so we never spin forever.
             var finished = await Task.WhenAny(analyze, Task.Delay(TimeSpan.FromSeconds(45)));
             if (finished == analyze)
                 levels = await analyze;
-            else
-                timedOut = true;
         }
         catch
         {
-            // fall through to the unavailable state
+            // treated as unavailable below
         }
+
+        this.IsBusy = false;
 
         if (levels is null)
         {
-            // DRM-protected / streaming-only (or too slow) — no envelope. The progress bar + seek still work.
-            this.WaveformAvailable = false;
-            this.StatusText = timedOut
-                ? "Waveform analysis timed out — progress & seek still work."
-                : "Waveform unavailable (DRM-protected track) — progress & seek still work.";
-        }
-        else
-        {
-            this.Rms = levels.Rms;
-            this.Peak = levels.Peak;
-            this.WaveformAvailable = true;
-            this.StatusText = $"{levels.Sections.Count} sections • {levels.Rms.Count} windows @ {levels.Window.TotalMilliseconds:0}ms";
+            // DRM-protected, streaming-only, or the audio couldn't be read — tell the user and go back.
+            RaiseUnavailable("This track can't be analyzed. It may be DRM-protected, or its audio couldn't be read on this device.");
+            return;
         }
 
+        this.Rms = levels.Rms;
+        this.Peak = levels.Peak;
+        this.WaveformAvailable = true;
+
+#if ANDROID
+        // The live Android VU meter taps the audio output, which the OS gates behind RECORD_AUDIO.
+        try { await Microsoft.Maui.ApplicationModel.Permissions.RequestAsync<Microsoft.Maui.ApplicationModel.Permissions.Microphone>(); }
+        catch { /* fall back to the implied meter if denied */ }
+#endif
+
+        // Live output tap on Android (when permitted); implied (analysis @ position) on Apple.
+        this.vuMeter = this.player.CreateVuMeter(levels, TimeSpan.FromMilliseconds(50));
+        this.vuMeter.LevelChanged += OnVuLevel;
+        this.vuMeter.Start();
+
+        var meterKind = this.vuMeter.IsLive ? "live VU" : "implied VU";
+        this.StatusText = $"{levels.Sections.Count} sections • {meterKind}";
+
+        StartTimer();
+        Tick();
         RaiseInvalidated();
     }
 
-    public void Stop() => StopTimer();
+    void OnVuLevel(object? sender, VuLevel level)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            this.VuRms = level.Rms;
+            // Peak-hold with decay so the meter falls back smoothly rather than flickering.
+            this.peakHold = level.Peak >= this.peakHold ? level.Peak : Math.Max(level.Peak, this.peakHold - 0.06f);
+            this.VuPeak = this.peakHold;
+            RaiseInvalidated();
+        });
+    }
+
+    void RaiseUnavailable(string message)
+    {
+        this.IsBusy = false;
+        StopTimer();
+        this.Unavailable?.Invoke(this, message);
+    }
+
+    public void Stop()
+    {
+        StopTimer();
+        if (this.vuMeter != null)
+        {
+            this.vuMeter.LevelChanged -= OnVuLevel;
+            this.vuMeter.Dispose();
+            this.vuMeter = null;
+        }
+    }
 
     // ── Scrub / seek from the waveform ──────────────────────────────
 
@@ -123,7 +157,6 @@ public partial class WaveformViewModel : ObservableObject
         if (!this.isScrubbing) return;
         Progress = Math.Clamp(fraction, 0, 1);
         PositionText = FormatTime(TimeSpan.FromSeconds(Progress * this.player.Duration.TotalSeconds));
-        UpdateVu();
         RaiseInvalidated();
     }
 
@@ -142,11 +175,10 @@ public partial class WaveformViewModel : ObservableObject
         this.player.Seek(TimeSpan.FromSeconds(clamped * duration.TotalSeconds));
         Progress = clamped;
         PositionText = FormatTime(TimeSpan.FromSeconds(clamped * duration.TotalSeconds));
-        UpdateVu();
         RaiseInvalidated();
     }
 
-    // ── Timer ───────────────────────────────────────────────────────
+    // ── Timer (play-head / progress) ────────────────────────────────
 
     void StartTimer()
     {
@@ -174,29 +206,7 @@ public partial class WaveformViewModel : ObservableObject
         Progress = duration.TotalSeconds > 0 ? position.TotalSeconds / duration.TotalSeconds : 0;
         PositionText = FormatTime(position);
         DurationText = FormatTime(duration);
-        UpdateVu();
         RaiseInvalidated();
-    }
-
-    void UpdateVu()
-    {
-        if (this.Rms is null || this.Peak is null || this.Rms.Count == 0)
-        {
-            VuRms = 0;
-            VuPeak = 0;
-            return;
-        }
-
-        var index = (int)(Progress * (this.Rms.Count - 1));
-        index = Math.Clamp(index, 0, this.Rms.Count - 1);
-
-        var isPlaying = this.player.State == PlaybackState.Playing || this.isScrubbing;
-        VuRms = isPlaying ? this.Rms[index] : 0;
-
-        var instantPeak = isPlaying ? this.Peak[index] : 0;
-        // Peak-hold with decay so the meter falls back smoothly rather than flickering.
-        this.peakHold = instantPeak >= this.peakHold ? instantPeak : Math.Max(instantPeak, this.peakHold - 0.06f);
-        VuPeak = this.peakHold;
     }
 
     void RaiseInvalidated() => this.Invalidated?.Invoke(this, EventArgs.Empty);
