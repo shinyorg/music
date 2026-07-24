@@ -146,6 +146,32 @@ public interface IMediaLibrary
     Task<string?> GetAlbumArtPathAsync(string trackId);
 
     /// <summary>
+    /// Analyzes a track's amplitude <b>offline</b> — decoding it to PCM to measure per-window RMS and peak
+    /// levels — <b>without playing it</b>. Use the result to draw a waveform / VU meter, or to locate the
+    /// loud and quiet regions of a song (e.g. finding the instrumental solo) via <see cref="AudioLevels.Sections"/>.
+    /// On Apple platforms the track is exported and read with <c>AVAudioFile</c>; on Android it is decoded with
+    /// <c>MediaExtractor</c> + <c>MediaCodec</c>. The channels are down-mixed for a single-envelope result.
+    /// <para>
+    /// Returns <c>null</c> when the track cannot be decoded to PCM — DRM-protected Apple Music content and
+    /// streaming catalog items (empty <see cref="MusicMetadata.ContentUri"/>), the same tracks
+    /// <see cref="CopyTrackAsync"/> refuses — or when the track id does not resolve. For those tracks, the
+    /// time-synced-lyric approach (<see cref="LyricsExtensions.GetInstrumentalGaps"/>) still works, as it
+    /// needs no audio decode.
+    /// </para>
+    /// Permission must be granted before calling this method.
+    /// </summary>
+    /// <param name="trackId">The platform-specific track identifier from <see cref="MusicMetadata.Id"/>.</param>
+    /// <param name="window">
+    /// The resolution of the analysis — the duration each RMS/peak entry represents. Smaller windows give a
+    /// finer waveform at the cost of more entries. Defaults to 500&#160;ms when <c>null</c>.
+    /// </param>
+    /// <returns>
+    /// The <see cref="AudioLevels"/> envelope and derived sections, or <c>null</c> if the track is
+    /// DRM-protected / streaming-only or does not resolve.
+    /// </returns>
+    Task<AudioLevels?> AnalyzeLevelsAsync(string trackId, TimeSpan? window = null);
+
+    /// <summary>
     /// Checks whether the user has an active music streaming subscription that allows catalog playback.
     /// On Apple platforms, this checks for Apple Music subscription capability via MusicKit <c>MusicSubscription</c>.
     /// On Android, this always returns <c>false</c>.

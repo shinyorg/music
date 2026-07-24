@@ -43,6 +43,32 @@
                 </Border.GestureRecognizers>
             </Border>
 
+            <!-- AI Assistant -->
+            <Border StrokeThickness="0"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                    Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="16" />
+                </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="Black" Offset="0,3" Radius="10" Opacity="0.08" />
+                </Border.Shadow>
+                <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                    <Label Grid.Column="0" Text="🤖" FontSize="34" VerticalOptions="Center" />
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                        <Label Text="AI Assistant" FontSize="17" FontAttributes="Bold" />
+                        <Label Text="Run Music.Extensions.AI queries via GitHub Copilot"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+                    </VerticalStackLayout>
+                    <Label Grid.Column="2" Text="›" FontSize="24"
+                           TextColor="{StaticResource Gray400}" VerticalOptions="Center" />
+                </Grid>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding OpenAiQueryCommand}" />
+                </Border.GestureRecognizers>
+            </Border>
+
             <!-- Spotify -->
             <Border StrokeThickness="0"
                     BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"

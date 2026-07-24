@@ -1,7 +1,10 @@
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using AudioToolbox;
 using AVFoundation;
 using Foundation;
 using MediaPlayer;
+using Shiny.Music.Internal;
 using ShinyMusicKit;
 using UIKit;
 
@@ -328,6 +331,139 @@ public class MediaLibrary : IMediaLibrary
                 return false;
             }
         });
+    }
+
+    // The analysis reads the source through AVAssetReader converted to mono 16-bit PCM at this rate, so the
+    // per-window maths is identical to the Android path and independent of the source's channels / rate.
+    const int AnalyzeSampleRate = 44100;
+
+    public Task<AudioLevels?> AnalyzeLevelsAsync(string trackId, TimeSpan? window = null)
+    {
+        var win = window ?? TimeSpan.FromMilliseconds(500);
+
+        return Task.Run(() =>
+        {
+            try
+            {
+                if (!ulong.TryParse(trackId, out var pid))
+                    return (AudioLevels?)null;
+
+                var query = MPMediaQuery.SongsQuery;
+                var item = query.Items?.FirstOrDefault(i => i.PersistentID == pid);
+                var assetUrl = item?.AssetURL;
+                if (assetUrl == null)
+                    return null; // cloud-only / DRM item with no local asset URL
+
+                // Runs on a background thread, so the synchronous track access (which blocks until the
+                // asset's properties load) can never freeze the UI; the caller also applies a timeout.
+                var asset = new AVUrlAsset(assetUrl);
+                var track = asset.GetTracks(AVMediaTypes.Audio).FirstOrDefault();
+                if (track == null)
+                    return null;
+
+                var duration = TimeSpan.FromSeconds(item!.PlaybackDuration);
+                return DecodeLevels(asset, track, duration, win);
+            }
+            catch
+            {
+                return null;
+            }
+        });
+    }
+
+    static AudioLevels? DecodeLevels(AVAsset asset, AVAssetTrack track, TimeSpan duration, TimeSpan window)
+    {
+        var reader = new AVAssetReader(asset, out var error);
+        if (error != null)
+            return null; // DRM-protected assets fail to open here
+
+        using (reader)
+        {
+            // Ask the reader to hand us mono, 16-bit, little-endian, interleaved PCM (it resamples / down-mixes).
+            var settings = new AudioSettings
+            {
+                Format = AudioFormatType.LinearPCM,
+                SampleRate = AnalyzeSampleRate,
+                NumberChannels = 1,
+                LinearPcmBitDepth = 16,
+                LinearPcmFloat = false,
+                LinearPcmBigEndian = false,
+                LinearPcmNonInterleaved = false
+            };
+
+            var output = new AVAssetReaderTrackOutput(track, settings);
+            if (!reader.CanAddOutput(output))
+                return null;
+
+            reader.AddOutput(output);
+            if (!reader.StartReading())
+                return null;
+
+            var samplesPerWindow = Math.Max(1, (int)(window.TotalSeconds * AnalyzeSampleRate));
+            var rms = new List<float>();
+            var peaks = new List<float>();
+            double sumSquares = 0;
+            float peak = 0;
+            var count = 0;
+
+            while (true)
+            {
+                using var sample = output.CopyNextSampleBuffer();
+                if (sample == null)
+                    break;
+
+                using var block = sample.GetDataBuffer();
+                if (block == null)
+                    continue;
+
+                var length = (int)block.DataLength;
+                if (length <= 0)
+                    continue;
+
+                var bytes = new byte[length];
+                var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+                try
+                {
+                    block.CopyDataBytes(0, (uint)length, handle.AddrOfPinnedObject());
+                }
+                finally
+                {
+                    handle.Free();
+                }
+
+                for (var off = 0; off + 1 < bytes.Length; off += 2)
+                {
+                    var value = (short)(bytes[off] | (bytes[off + 1] << 8)) / 32768f;
+                    sumSquares += (double)value * value;
+                    var magnitude = Math.Abs(value);
+                    if (magnitude > peak)
+                        peak = magnitude;
+
+                    if (++count >= samplesPerWindow)
+                    {
+                        rms.Add((float)Math.Sqrt(sumSquares / count));
+                        peaks.Add(peak);
+                        sumSquares = 0;
+                        peak = 0;
+                        count = 0;
+                    }
+                }
+            }
+
+            if (reader.Status == AVAssetReaderStatus.Failed)
+                return null;
+
+            if (count > 0)
+            {
+                rms.Add((float)Math.Sqrt(sumSquares / count));
+                peaks.Add(peak);
+            }
+
+            if (rms.Count == 0)
+                return null;
+
+            return AudioAnalysis.Build(window, duration, rms, peaks);
+        }
     }
 
     public async Task<bool> HasStreamingSubscriptionAsync()

@@ -18,6 +18,16 @@ triggers:
   - music permission
   - music playback
   - play music
+  - AnalyzeLevelsAsync
+  - AudioLevels
+  - AudioSection
+  - waveform
+  - VU meter
+  - song structure
+  - instrumental gap
+  - GetInstrumentalGaps
+  - guitar solo
+  - play from timestamp
   - copy track
   - audio library
   - MediaStore audio
@@ -301,6 +311,36 @@ Task<string?> GetAlbumArtPathAsync(string trackId);
 
 Returns a file path to the album artwork image for the specified track. On Android, returns the content URI for the album art from MediaStore. On Apple platforms, exports the `MPMediaItem.Artwork` image to a cached JPEG file and returns its path. Returns `null` if no artwork is available.
 
+#### AnalyzeLevelsAsync
+
+```csharp
+Task<AudioLevels?> AnalyzeLevelsAsync(string trackId, TimeSpan? window = null);
+```
+
+Decodes a track to PCM **offline — without playing it** — and measures its amplitude. Use it to draw a waveform / VU meter, or to locate parts of a song (an intro, a chorus, a solo). Returns `null` for DRM-protected / streaming-only tracks that cannot be decoded to PCM (the same tracks `CopyTrackAsync` refuses) — **always null-check the result**.
+
+- **Android**: decodes via `MediaExtractor` + `MediaCodec`. **Apple platforms**: reads via `AVAssetReader` (no export, no playback). Both down-mix to a single mono envelope at a fixed rate, so results are comparable across platforms.
+- `window` is the analysis resolution (duration per RMS/peak entry); defaults to 500 ms.
+
+`AudioLevels` contains:
+
+- `Rms` / `Peak` — `IReadOnlyList<float>`, per-window levels normalized `0.0–1.0` against the track's loudest sample (entry `i` covers `[i*Window, (i+1)*Window)`).
+- `Sections` — `IReadOnlyList<AudioSection>`: contiguous same-energy runs, each with `Start`, `Duration`, `End`, `AudioEnergy` (`Silent`/`Quiet`/`Moderate`/`Loud`), and `AverageLevel`. This is the coarse "song structure".
+
+```csharp
+var levels = await library.AnalyzeLevelsAsync(track.Id);
+if (levels is not null)
+{
+    // the last loud stretch is often an outro solo
+    var solo = levels.Sections.Where(s => s.Energy == AudioEnergy.Loud).MaxBy(s => s.Start);
+    if (solo is not null)
+    {
+        await player.PlayAsync(track);
+        player.Seek(solo.Start);
+    }
+}
+```
+
 #### CopyTrackAsync
 
 ```csharp
@@ -528,6 +568,33 @@ Synced lyrics use the standard LRC format with timestamps:
 ```
 
 Each line is prefixed with `[mm:ss.xx]` indicating when the line should be displayed during playback.
+
+#### Instrumental gaps from synced lyrics (`LyricsExtensions`)
+
+`LyricsExtensions` (namespace `Shiny.Music`) turns synced lyrics into the **instrumental (no-vocal) sections** of a track — intro, breaks, solos, outro — with **no audio decode**, so it works even for DRM tracks where `AnalyzeLevelsAsync` returns `null`.
+
+```csharp
+IReadOnlyList<InstrumentalGap> GetInstrumentalGaps(
+    this LyricsResult? lyrics,
+    TimeSpan? trackDuration = null,   // enables the trailing (outro) gap
+    TimeSpan? minimumGap = null);     // default 8s — excludes ordinary pauses between lines
+
+IReadOnlyList<LrcLine> ParseSyncedLyrics(this LyricsResult? lyrics);  // (Timestamp, Text) lines
+```
+
+`InstrumentalGap` has `Start`, `Duration`, and `End`. Requires `SyncedLyrics` (returns empty for plain-only lyrics). Combine with `AnalyzeLevelsAsync`: the lyric gaps give precise boundaries, the audio `Sections` tell you which gap is the loud solo versus the quiet intro.
+
+```csharp
+// "Start playing the guitar solo"
+var lyrics = await _lyricsProvider.GetLyricsAsync(track);
+var gaps = lyrics.GetInstrumentalGaps(track.Duration);
+var solo = gaps.MaxBy(g => g.Duration);   // the longest instrumental stretch
+if (solo is not null)
+{
+    await _player.PlayAsync(track);
+    _player.Seek(solo.Start);
+}
+```
 
 ### MusicMetadata
 
@@ -821,9 +888,10 @@ var response = await chatClient.GetResponseAsync(
 | `list_music_categories` | Library | `kind` (`genres`\|`years`\|`decades`, required), `genre` | Distinct categories with track counts |
 | `list_playlists` | Library | — | All playlists with ids and song counts |
 | `get_playlist_tracks` | Library | `playlist_id` (required), `limit` | Tracks in a playlist |
+| `analyze_song_structure` | Library | `track_id` (required) | Instrumental gaps (from synced lyrics, DRM-safe) + audio-energy sections (offline scan, null for DRM) in seconds — to start playback at a solo/chorus. No audio is played |
 | `get_lyrics` | Library | `track_id` (required) | Plain and/or synced lyrics (needs `ILyricsProvider`) |
 | `search_catalog` | Catalog *(Apple-only)* | `query` (required), `limit` | Search the Apple Music streaming catalog (not just the local library); returns ids usable with `play_track` |
-| `play_track` | Playback | `track_id` (required) | Load and play a track by id (local or catalog) |
+| `play_track` | Playback | `track_id` (required), `start_seconds` | Load and play a track by id (local or catalog); optionally start partway in (e.g. at a solo from `analyze_song_structure`) |
 | `control_playback` | Playback | `action` (`pause`\|`resume`\|`stop`\|`seek`, required), `position_seconds` | Transport control |
 | `get_now_playing` | Playback | — | Current state, track, position, duration |
 | `create_playlist` | Playlist mgmt | `name` (required) | Create a custom playlist |

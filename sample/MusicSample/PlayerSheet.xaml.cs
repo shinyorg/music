@@ -141,4 +141,13 @@ public partial class PlayerSheet : FloatingPanel
             await Navigation.PushModalAsync(page);
         }
     }
+
+    async void OnWaveformClicked(object? sender, EventArgs e)
+    {
+        if (BindingContext is PlayerViewModel vm)
+        {
+            var page = new WaveformPage(new WaveformViewModel(vm.Player, vm.Library));
+            await Navigation.PushModalAsync(page);
+        }
+    }
 }

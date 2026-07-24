@@ -1,7 +1,9 @@
 using Android.Content;
 using Android.Database;
+using Android.Media;
 using Android.Provider;
 using Shiny;
+using Shiny.Music.Internal;
 using Uri = Android.Net.Uri;
 
 namespace Shiny.Music;
@@ -134,6 +136,173 @@ public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) :
                 return false;
             }
         });
+    }
+
+    public Task<AudioLevels?> AnalyzeLevelsAsync(string trackId, TimeSpan? window = null)
+    {
+        var win = window ?? TimeSpan.FromMilliseconds(500);
+
+        return Task.Run(async () =>
+        {
+            var track = await GetTrackByIdAsync(trackId).ConfigureAwait(false);
+            if (track is null || string.IsNullOrEmpty(track.ContentUri))
+                return (AudioLevels?)null;
+
+            try
+            {
+                return DecodeLevels(Uri.Parse(track.ContentUri)!, track.Duration, win);
+            }
+            catch
+            {
+                return null;
+            }
+        });
+    }
+
+    static AudioLevels? DecodeLevels(Uri uri, TimeSpan duration, TimeSpan window)
+    {
+        MediaExtractor? extractor = null;
+        MediaCodec? codec = null;
+        try
+        {
+            extractor = new MediaExtractor();
+            extractor.SetDataSource(Application.Context, uri, (IDictionary<string, string>?)null);
+
+            var audioTrack = -1;
+            MediaFormat? format = null;
+            string? mime = null;
+            for (var i = 0; i < extractor.TrackCount; i++)
+            {
+                var f = extractor.GetTrackFormat(i);
+                var m = f.GetString(MediaFormat.KeyMime);
+                if (m != null && m.StartsWith("audio/", StringComparison.OrdinalIgnoreCase))
+                {
+                    audioTrack = i;
+                    format = f;
+                    mime = m;
+                    break;
+                }
+            }
+
+            if (audioTrack < 0 || format == null || mime == null)
+                return null;
+
+            extractor.SelectTrack(audioTrack);
+            codec = MediaCodec.CreateDecoderByType(mime);
+            codec.Configure(format, null, null, MediaCodecConfigFlags.None);
+            codec.Start();
+
+            var sampleRate = format.ContainsKey(MediaFormat.KeySampleRate) ? format.GetInteger(MediaFormat.KeySampleRate) : 44100;
+            var channels = format.ContainsKey(MediaFormat.KeyChannelCount) ? Math.Max(1, format.GetInteger(MediaFormat.KeyChannelCount)) : 1;
+            var samplesPerWindow = Math.Max(1, (int)(window.TotalSeconds * sampleRate));
+
+            var rms = new List<float>();
+            var peaks = new List<float>();
+            double sumSquares = 0;
+            float peak = 0;
+            var count = 0;
+
+            var info = new MediaCodec.BufferInfo();
+            var inputDone = false;
+            var outputDone = false;
+            const long TimeoutUs = 10_000;
+
+            // Hard safety cap so a misbehaving decoder can never hang the caller indefinitely.
+            var watchdog = System.Diagnostics.Stopwatch.StartNew();
+            var timeLimit = TimeSpan.FromSeconds(60);
+
+            while (!outputDone)
+            {
+                if (watchdog.Elapsed > timeLimit)
+                    break;
+
+
+                if (!inputDone)
+                {
+                    var inIndex = codec.DequeueInputBuffer(TimeoutUs);
+                    if (inIndex >= 0)
+                    {
+                        var inBuffer = codec.GetInputBuffer(inIndex);
+                        var sampleSize = inBuffer == null ? -1 : extractor.ReadSampleData(inBuffer, 0);
+                        if (sampleSize < 0)
+                        {
+                            codec.QueueInputBuffer(inIndex, 0, 0, 0, MediaCodecBufferFlags.EndOfStream);
+                            inputDone = true;
+                        }
+                        else
+                        {
+                            codec.QueueInputBuffer(inIndex, 0, sampleSize, extractor.SampleTime, MediaCodecBufferFlags.None);
+                            extractor.Advance();
+                        }
+                    }
+                }
+
+                var outIndex = codec.DequeueOutputBuffer(info, TimeoutUs);
+                if (outIndex == (int)MediaCodecInfoState.OutputFormatChanged)
+                {
+                    var newFormat = codec.OutputFormat;
+                    if (newFormat.ContainsKey(MediaFormat.KeySampleRate))
+                    {
+                        sampleRate = newFormat.GetInteger(MediaFormat.KeySampleRate);
+                        samplesPerWindow = Math.Max(1, (int)(window.TotalSeconds * sampleRate));
+                    }
+                    if (newFormat.ContainsKey(MediaFormat.KeyChannelCount))
+                        channels = Math.Max(1, newFormat.GetInteger(MediaFormat.KeyChannelCount));
+                }
+                else if (outIndex >= 0)
+                {
+                    if ((info.Flags & MediaCodecBufferFlags.EndOfStream) != 0)
+                        outputDone = true;
+
+                    var outBuffer = codec.GetOutputBuffer(outIndex);
+                    if (outBuffer != null && info.Size > 0)
+                    {
+                        var bytes = new byte[info.Size];
+                        outBuffer.Position(info.Offset);
+                        outBuffer.Get(bytes, 0, info.Size);
+
+                        // 16-bit little-endian PCM, interleaved by channel; take channel 0 as the down-mix.
+                        var stride = channels * 2;
+                        for (var off = 0; off + 1 < bytes.Length; off += stride)
+                        {
+                            var sample = (short)(bytes[off] | (bytes[off + 1] << 8)) / 32768f;
+                            sumSquares += (double)sample * sample;
+                            var magnitude = Math.Abs(sample);
+                            if (magnitude > peak)
+                                peak = magnitude;
+
+                            if (++count >= samplesPerWindow)
+                            {
+                                rms.Add((float)Math.Sqrt(sumSquares / count));
+                                peaks.Add(peak);
+                                sumSquares = 0;
+                                peak = 0;
+                                count = 0;
+                            }
+                        }
+                    }
+
+                    codec.ReleaseOutputBuffer(outIndex, false);
+                }
+            }
+
+            if (count > 0)
+            {
+                rms.Add((float)Math.Sqrt(sumSquares / count));
+                peaks.Add(peak);
+            }
+
+            if (rms.Count == 0)
+                return null;
+
+            return AudioAnalysis.Build(window, duration, rms, peaks);
+        }
+        finally
+        {
+            try { codec?.Stop(); } catch { /* ignore */ }
+            codec?.Release();
+            extractor?.Release();
+        }
     }
 
     async Task<IReadOnlyList<MusicMetadata>> WithPlayCounts(List<MusicMetadata> tracks)

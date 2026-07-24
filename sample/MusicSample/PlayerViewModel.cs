@@ -37,6 +37,11 @@ public partial class PlayerViewModel(
 
     public event EventHandler<int>? LyricHighlightChanged;
 
+    // Exposed so the modal Waveform/VU page can reuse the same player + library (mirrors how LyricsPage
+    // reuses this singleton view model).
+    public IMusicPlayer Player => player;
+    public IMediaLibrary Library => library;
+
     // ── Lifecycle ───────────────────────────────────────────────
 
     public void OnAppearing()

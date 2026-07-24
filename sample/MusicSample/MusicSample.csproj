@@ -20,6 +20,8 @@
         <PackageReference Include="Shiny.Maui.Shell"/>
         <PackageReference Include="Shiny.Maui.Shell.UxDiversDialogs"/>
         <PackageReference Include="CommunityToolkit.Mvvm"/>
+        <PackageReference Include="Microsoft.Extensions.AI"/>
+        <PackageReference Include="Microsoft.Extensions.AI.OpenAI"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -33,6 +35,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Shiny.Music\Shiny.Music.csproj"/>
+        <ProjectReference Include="..\..\src\Shiny.Music.Extensions.AI\Shiny.Music.Extensions.AI.csproj"/>
         <ProjectReference Include="..\..\src\Shiny.Spotify.Maui\Shiny.Spotify.Maui.csproj"/>
     </ItemGroup>
 

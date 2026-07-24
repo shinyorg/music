@@ -7,14 +7,15 @@ namespace Shiny.Music.Extensions.AI.Internal;
 /// <summary>Loads and plays a track by id.</summary>
 sealed class PlayTrackFunction(IMediaLibrary library, IMusicPlayer player, CatalogTrackCache catalog) : MusicAIFunctionBase(
     "play_track",
-    "Load and start playing a track by its id (from search_tracks / browse_tracks / get_playlist_tracks / search_catalog). Any currently playing track is stopped first.",
+    "Load and start playing a track by its id (from search_tracks / browse_tracks / get_playlist_tracks / search_catalog). Any currently playing track is stopped first. Optionally pass start_seconds to begin partway in — e.g. at the timestamp of a solo or chorus found via analyze_song_structure.",
     BuildSchema())
 {
     static JsonElement BuildSchema()
         => SchemaJson.ToElement(SchemaJson.Object(
             new JsonObject
             {
-                ["track_id"] = SchemaJson.String("The id of the track to play.")
+                ["track_id"] = SchemaJson.String("The id of the track to play."),
+                ["start_seconds"] = SchemaJson.Number("Optional position, in seconds, to start playback from (e.g. the start of a solo from analyze_song_structure). Defaults to the beginning of the track.")
             },
             "track_id"));
 
@@ -41,9 +42,14 @@ sealed class PlayTrackFunction(IMediaLibrary library, IMusicPlayer player, Catal
             return new JsonObject { ["error"] = $"Playback failed: {ex.Message}" };
         }
 
+        var startSeconds = GetDouble(arguments, "start_seconds");
+        if (startSeconds is > 0)
+            player.Seek(TimeSpan.FromSeconds(startSeconds.Value));
+
         return new JsonObject
         {
             ["status"] = "playing",
+            ["startedAtSeconds"] = startSeconds is > 0 ? (int)startSeconds.Value : 0,
             ["track"] = TrackJson(track)
         };
     }

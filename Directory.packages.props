@@ -13,6 +13,8 @@
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.5"/>
         <PackageVersion Include="Shiny.Core" Version="5.1.1"/>
         <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.5.2"/>
+        <PackageVersion Include="Microsoft.Extensions.AI" Version="10.5.2"/>
+        <PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.5.2"/>
         <PackageVersion Include="Nerdbank.GitVersioning" Version="3.9.50"/>
         <PackageVersion Include="GoogleGson" Version="2.11.0.5"/>
     </ItemGroup>

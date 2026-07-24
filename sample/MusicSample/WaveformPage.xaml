@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MusicSample.WaveformPage"
+             BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="20,16" RowSpacing="18">
+
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+            <VerticalStackLayout Spacing="2">
+                <Label Text="{Binding Title}" FontSize="20" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                <Label Text="{Binding Artist}" FontSize="14"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                       LineBreakMode="TailTruncation" />
+            </VerticalStackLayout>
+            <Button Grid.Column="1" Text="✕" FontSize="18" WidthRequest="40" HeightRequest="40" CornerRadius="20"
+                    Padding="0" BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray300}}"
+                    Clicked="OnCloseClicked" />
+        </Grid>
+
+        <!-- Waveform + seek -->
+        <VerticalStackLayout Grid.Row="1" Spacing="6">
+            <GraphicsView x:Name="WaveformView" HeightRequest="120"
+                          StartInteraction="OnWaveStart"
+                          DragInteraction="OnWaveDrag"
+                          EndInteraction="OnWaveEnd" />
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Label Text="{Binding PositionText}" FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+                <Label Grid.Column="2" Text="{Binding DurationText}" FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+            </Grid>
+            <Label Text="Tap or drag the waveform to seek" FontSize="11" HorizontalTextAlignment="Center"
+                   TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}" />
+        </VerticalStackLayout>
+
+        <!-- Status -->
+        <Label Grid.Row="2" Text="{Binding StatusText}" FontSize="12" HorizontalTextAlignment="Center"
+               TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}" />
+
+        <!-- VU meters -->
+        <Grid Grid.Row="3" RowDefinitions="*,Auto">
+            <GraphicsView x:Name="VuView" />
+            <Grid Grid.Row="1" ColumnDefinitions="*,*" Margin="0,8,0,0">
+                <Label Text="RMS" FontSize="12" FontAttributes="Bold" HorizontalTextAlignment="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+                <Label Grid.Column="1" Text="PEAK" FontSize="12" FontAttributes="Bold" HorizontalTextAlignment="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+            </Grid>
+        </Grid>
+
+        <!-- Busy -->
+        <ActivityIndicator Grid.Row="0" Grid.RowSpan="5" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                           VerticalOptions="Center" HorizontalOptions="Center"
+                           Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+    </Grid>
+</ContentPage>

@@ -23,6 +23,7 @@ static class MusicAIFunctionFactory
             tools.Add(new ListCategoriesFunction(library));
             tools.Add(new ListPlaylistsFunction(library));
             tools.Add(new GetPlaylistTracksFunction(library));
+            tools.Add(new AnalyzeSongStructureFunction(library, lyrics));
             if (lyrics is not null)
                 tools.Add(new GetLyricsFunction(library, lyrics));
         }

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:MusicSample"
+             x:Class="MusicSample.AiQueryPage"
+             x:DataType="local:AiQueryViewModel"
+             Title="AI Assistant"
+             BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="12" RowSpacing="10">
+
+        <!-- Sign-in bar -->
+        <Border Grid.Row="0" StrokeThickness="0" Padding="14,10"
+                BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="14" />
+            </Border.StrokeShape>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <VerticalStackLayout Grid.Column="0" VerticalOptions="Center" Spacing="2">
+                    <Label Text="GitHub Copilot" FontSize="15" FontAttributes="Bold" />
+                    <Label FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding IsSignedIn}" Value="True">
+                                <Setter Property="Text" Value="Signed in — ask me to play music" />
+                            </DataTrigger>
+                            <DataTrigger TargetType="Label" Binding="{Binding IsSignedIn}" Value="False">
+                                <Setter Property="Text" Value="Sign in to run AI music queries" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                </VerticalStackLayout>
+
+                <Button Grid.Column="1" Text="Sign in"
+                        IsVisible="{Binding IsSignedIn, Converter={StaticResource InvertBool}}"
+                        Command="{Binding SignInCommand}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                        TextColor="White" CornerRadius="10" HeightRequest="40" Padding="16,0" />
+                <Button Grid.Column="1" Text="Sign out"
+                        IsVisible="{Binding IsSignedIn}"
+                        Command="{Binding SignOutCommand}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Tertiary}}"
+                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                        CornerRadius="10" HeightRequest="40" Padding="16,0" />
+            </Grid>
+        </Border>
+
+        <!-- Transcript -->
+        <CollectionView Grid.Row="1" x:Name="Transcript" ItemsSource="{Binding Messages}">
+            <CollectionView.EmptyView>
+                <VerticalStackLayout Padding="24" Spacing="8" VerticalOptions="Center">
+                    <Label Text="🎵" FontSize="40" HorizontalTextAlignment="Center" />
+                    <Label Text="Try: &quot;play something mellow from the 80s&quot;, &quot;make a workout playlist&quot;, or &quot;play the guitar solo in November Rain&quot;"
+                           FontSize="13" HorizontalTextAlignment="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="local:AiMessage">
+                    <Grid Padding="2,4">
+                        <Border StrokeThickness="0" Padding="12,8"
+                                BackgroundColor="{Binding Background}"
+                                HorizontalOptions="{Binding Align}"
+                                MaximumWidthRequest="300">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="14" />
+                            </Border.StrokeShape>
+                            <Label Text="{Binding Text}" TextColor="{Binding TextColor}" FontSize="14" />
+                        </Border>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Input bar -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Border Grid.Column="0" StrokeThickness="0" Padding="12,0"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="22" />
+                </Border.StrokeShape>
+                <Entry x:Name="InputEntry"
+                       Text="{Binding Input}"
+                       Placeholder="Ask about your music…"
+                       ReturnType="Send"
+                       Completed="OnEntryCompleted"
+                       IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBool}}" />
+            </Border>
+            <Button Grid.Column="1" Text="➤" FontSize="18"
+                    WidthRequest="48" HeightRequest="48" CornerRadius="24" Padding="0"
+                    Command="{Binding SendCommand}"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBool}}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                    TextColor="White" />
+        </Grid>
+
+        <!-- Busy -->
+        <ActivityIndicator Grid.Row="1" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                           VerticalOptions="End" HorizontalOptions="Center" Margin="0,0,0,8"
+                           Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+    </Grid>
+</ContentPage>

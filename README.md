@@ -203,12 +203,48 @@ Generated tools (only for areas you opt-in to):
 
 | Area | Tools |
 |---|---|
-| `AddLibrary()` | `search_tracks`, `browse_tracks`, `list_music_categories`, `list_playlists`, `get_playlist_tracks`, `get_lyrics` |
-| `AddPlayback()` | `play_track`, `control_playback`, `get_now_playing` |
+| `AddLibrary()` | `search_tracks`, `browse_tracks`, `list_music_categories`, `list_playlists`, `get_playlist_tracks`, `analyze_song_structure`, `get_lyrics` |
+| `AddPlayback()` | `play_track` *(accepts `start_seconds`)*, `control_playback`, `get_now_playing` |
 | `AddPlaylistManagement()` | `create_playlist`, `modify_playlist`, `delete_playlist` |
 | `AddCatalog()` *(Apple-only, opt-in)* | `search_catalog` — searches the Apple Music streaming catalog; results are playable via `play_track`. Not in `AddAll()`; guard with `#if IOS \|\| MACCATALYST` |
 
 `browse_tracks` filters by genre, year, decade, and free text — it's the natural path for "play me something mellow" or "pick an 80s track". The tools assume library permission is already granted — call `RequestPermissionAsync` from your app first; they do not trigger the permission UI.
+
+`analyze_song_structure` lets an agent **start playback at a specific musical moment** — "play the famous guitar solo" or "skip to the final chorus". It returns the instrumental gaps (from time-synced lyrics) and audio-energy sections (from an offline scan) in seconds; the model uses its own knowledge of the song to pick the right one, then calls `play_track` with `start_seconds`. See [Audio Analysis & Song Structure](#audio-analysis--song-structure) below for the underlying APIs.
+
+## Audio Analysis & Song Structure
+
+Two APIs let you inspect a song **without playing it** — for drawing a waveform / VU meter, or for locating a specific part of a track (an intro, a chorus, a solo). This is what powers the `analyze_song_structure` AI tool.
+
+**`AnalyzeLevelsAsync(trackId, window?)`** decodes a track to PCM offline (no audio is played) and measures its amplitude. It returns an `AudioLevels` with:
+
+- `Rms` / `Peak` — per-window levels normalized `0.0–1.0` against the track's loudest sample (the "VU" envelope — one entry per `window`, default 500 ms).
+- `Sections` — the envelope collapsed into contiguous `AudioSection` runs classified by relative `AudioEnergy` (`Silent`/`Quiet`/`Moderate`/`Loud`) — a compact "song structure" for finding, say, the loud instrumental stretch that is the solo.
+
+It returns **`null`** for DRM-protected / streaming-only tracks that can't be decoded to PCM (the same tracks `CopyTrackAsync` refuses).
+
+**`lyricsResult.GetInstrumentalGaps(duration?)`** derives the no-vocal stretches of a track from its time-synced (LRC) lyrics alone — the intro, breaks, solos, and outro. Because it needs **no audio decode, it works even for DRM tracks**. Combine the two: the lyric gaps give precise boundaries, the audio energy tells you which gap is the loud solo versus the quiet intro.
+
+```csharp
+// "Play the famous guitar solo from November Rain"
+var track = (await library.SearchTracksAsync("November Rain")).First();
+
+// 1. Precise instrumental boundaries from synced lyrics (DRM-safe)
+var lyrics = await lyricsProvider.GetLyricsAsync(track);
+var gaps = lyrics.GetInstrumentalGaps(track.Duration);      // e.g. intro, mid break, final solo
+
+// 2. Energy sections to tell a loud solo from a quiet intro (null if DRM-protected)
+var levels = await library.AnalyzeLevelsAsync(track.Id);
+var solo = levels?.Sections
+    .Where(s => s.Energy == AudioEnergy.Loud)
+    .MaxBy(s => s.Start);                                   // the last big loud stretch — the outro solo
+
+var startAt = solo?.Start ?? gaps.LastOrDefault()?.Start ?? TimeSpan.Zero;
+
+// 3. Play from that point
+await player.PlayAsync(track);
+player.Seek(startAt);
+```
 
 ## API Reference
 
@@ -230,6 +266,7 @@ Generated tools (only for areas you opt-in to):
 | `GetPlaylistByIdAsync(playlistId)` | Returns a single playlist (with song count) by its identifier, or `null` if not found |
 | `GetPlaylistTracksAsync(playlistId)` | Returns all tracks in the specified playlist, in playlist order |
 | `GetAlbumArtPathAsync(trackId)` | Returns a file path to album artwork for the track, or `null` |
+| `AnalyzeLevelsAsync(trackId, window?)` | Decodes a track offline (**without playing it**) to per-window RMS/peak levels and energy `Sections` for a waveform/VU meter or locating a solo; returns `null` for DRM-protected tracks |
 | `CopyTrackAsync(track, destPath)` | Copies a track to the specified path; returns `false` if not possible |
 | `HasStreamingSubscriptionAsync()` | Checks for an active streaming subscription (Apple platforms: Apple Music; Android: always `false`) |
 | `SearchCatalogAsync(term, limit)` | Searches the Apple Music streaming **catalog** (results need not be in the user's library); returns tracks playable via `PlayAsync`. **Apple only** — throws `PlatformNotSupportedException` on Android |

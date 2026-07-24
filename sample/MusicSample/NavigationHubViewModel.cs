@@ -12,4 +12,7 @@ public partial class NavigationHubViewModel(INavigator navigator) : ObservableOb
 
     [RelayCommand]
     Task OpenSpotify() => navigator.NavigateTo("Spotify");
+
+    [RelayCommand]
+    Task OpenAiQuery() => navigator.NavigateTo("AiQuery");
 }

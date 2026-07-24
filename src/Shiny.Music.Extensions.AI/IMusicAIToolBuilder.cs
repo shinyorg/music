@@ -9,8 +9,10 @@ public interface IMusicAIToolBuilder
     /// <summary>
     /// Exposes read-only library tools: searching and browsing the track library (by genre, era,
     /// or free text — the natural path for "pick a song for my mood"), listing genres / years /
-    /// decades, browsing playlists and their tracks, and fetching lyrics. Requires
-    /// <see cref="IMediaLibrary"/> (and <see cref="ILyricsProvider"/> for lyrics) in DI.
+    /// decades, browsing playlists and their tracks, fetching lyrics, and analyzing a track's
+    /// structure (instrumental gaps and audio-energy sections) so an agent can start playback at a
+    /// specific moment such as a solo. Requires <see cref="IMediaLibrary"/> (and
+    /// <see cref="ILyricsProvider"/> for lyrics / lyric-based gap detection) in DI.
     /// </summary>
     IMusicAIToolBuilder AddLibrary();
 
