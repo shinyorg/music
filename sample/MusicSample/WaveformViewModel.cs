@@ -21,6 +21,7 @@ public partial class WaveformViewModel : ObservableObject
     IVuMeter? vuMeter;
     bool isScrubbing;
     float peakHold;
+    string? lastDiagnostic;
 
     public WaveformViewModel(IMusicPlayer player, IMediaLibrary library)
     {
@@ -30,7 +31,12 @@ public partial class WaveformViewModel : ObservableObject
         var track = player.CurrentTrack;
         this.Title = track?.Title ?? "Not Playing";
         this.Artist = track?.Artist ?? "";
+
+        // Capture the library's diagnostic reason so a failed analysis can show *why* in the alert.
+        MusicDiagnostics.Message += OnDiagnostic;
     }
+
+    void OnDiagnostic(string message) => this.lastDiagnostic = message;
 
     [ObservableProperty] string title;
     [ObservableProperty] string artist;
@@ -134,12 +140,14 @@ public partial class WaveformViewModel : ObservableObject
     {
         this.IsBusy = false;
         StopTimer();
-        this.Unavailable?.Invoke(this, message);
+        var full = this.lastDiagnostic is null ? message : $"{message}\n\nReason: {this.lastDiagnostic}";
+        this.Unavailable?.Invoke(this, full);
     }
 
     public void Stop()
     {
         StopTimer();
+        MusicDiagnostics.Message -= OnDiagnostic;
         if (this.vuMeter != null)
         {
             this.vuMeter.LevelChanged -= OnVuLevel;

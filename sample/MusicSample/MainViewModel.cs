@@ -30,6 +30,11 @@ public partial class MainViewModel(
     // loading it kicked off, so switching categories abandons the previous one's work.
     CancellationTokenSource? loadCts;
 
+    // Album art is fetched per track off the UI thread. Without a gate, a large list fires
+    // hundreds of concurrent disk-copy/ContentResolver calls at once, saturating the thread
+    // pool and delaying everything else. Cap the concurrency so art fills in progressively.
+    readonly SemaphoreSlim albumArtGate = new(4, 4);
+
     public PlayerViewModel Player => player;
 
     public async void OnAppearing()
@@ -292,9 +297,31 @@ public partial class MainViewModel(
         var items = rawTracks.Select(t => new TrackItem(t)).ToList();
         Tracks = new ObservableCollection<TrackItem>(items);
 
-        // Load album art in the background; cancels when the category is switched away.
+        // Load album art in the background; cancels when the category is switched away. The
+        // gate bounds how many run at once so the list stays responsive while art fills in.
         foreach (var item in items)
-            _ = item.LoadAlbumArt(library, cancellationToken);
+            _ = LoadAlbumArtThrottled(item, cancellationToken);
+    }
+
+    async Task LoadAlbumArtThrottled(TrackItem item, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await albumArtGate.WaitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        try
+        {
+            if (!cancellationToken.IsCancellationRequested)
+                await item.LoadAlbumArt(library, cancellationToken);
+        }
+        finally
+        {
+            albumArtGate.Release();
+        }
     }
 
     async Task LoadCustomPlaylists()

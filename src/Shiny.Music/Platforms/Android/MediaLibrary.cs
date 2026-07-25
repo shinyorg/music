@@ -11,17 +11,35 @@ namespace Shiny.Music;
 public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) : IMediaLibrary
 {
     readonly CustomPlaylistStore customPlaylists = new();
-    static readonly string[] AudioProjection = 
-    [
-        MediaStore.Audio.Media.InterfaceConsts.Id,
-        MediaStore.Audio.Media.InterfaceConsts.Title,
-        MediaStore.Audio.Media.InterfaceConsts.Artist,
-        MediaStore.Audio.Media.InterfaceConsts.Album,
-        MediaStore.Audio.Media.InterfaceConsts.Duration,
-        MediaStore.Audio.Media.InterfaceConsts.AlbumId,
-        MediaStore.Audio.Media.InterfaceConsts.Data,
-        MediaStore.Audio.Media.InterfaceConsts.Year
-    ];
+
+    // The per-track GENRE column on the audio media table exists from Android 11 (API 30). When it is
+    // available we read genre straight from the main cursor, which lets every track-loading path skip
+    // BuildGenreMap() entirely. BuildGenreMap issues one ContentResolver query PER genre against the
+    // genre-members URI — each a Binder IPC round-trip to MediaProvider — so on a library with many
+    // genres it dominated load time. Pre-30 devices keep the genre-members fallback.
+    const string GenreColumn = "genre";
+    static readonly bool GenreColumnAvailable = OperatingSystem.IsAndroidVersionAtLeast(30);
+
+    static readonly string[] AudioProjection = BuildAudioProjection();
+
+    static string[] BuildAudioProjection()
+    {
+        var columns = new List<string>
+        {
+            MediaStore.Audio.Media.InterfaceConsts.Id,
+            MediaStore.Audio.Media.InterfaceConsts.Title,
+            MediaStore.Audio.Media.InterfaceConsts.Artist,
+            MediaStore.Audio.Media.InterfaceConsts.Album,
+            MediaStore.Audio.Media.InterfaceConsts.Duration,
+            MediaStore.Audio.Media.InterfaceConsts.AlbumId,
+            MediaStore.Audio.Media.InterfaceConsts.Data,
+            MediaStore.Audio.Media.InterfaceConsts.Year
+        };
+        if (GenreColumnAvailable)
+            columns.Add(GenreColumn);
+
+        return columns.ToArray();
+    }
 
     ContentResolver Resolver => Application.Context.ContentResolver!;
 
@@ -49,7 +67,7 @@ public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) :
     {
         var tracks = await Task.Run(() =>
         {
-            var genreMap = BuildGenreMap();
+            var genreMap = GenreColumnAvailable ? null : BuildGenreMap();
             var result = new List<MusicMetadata>();
             var contentUri = MediaStore.Audio.Media.ExternalContentUri!;
 
@@ -79,7 +97,7 @@ public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) :
     {
         var tracks = await Task.Run(() =>
         {
-            var genreMap = BuildGenreMap();
+            var genreMap = GenreColumnAvailable ? null : BuildGenreMap();
             var result = new List<MusicMetadata>();
             var contentUri = MediaStore.Audio.Media.ExternalContentUri!;
 
@@ -361,8 +379,7 @@ public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) :
             Uri.Parse("content://media/external/audio/albumart")!, albumId
         );
 
-        string? genre = null;
-        genreMap?.TryGetValue(id, out genre);
+        var genre = ReadGenre(cursor, id, genreMap);
 
         return new MusicMetadata(
             Id: id.ToString(),
@@ -376,6 +393,24 @@ public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) :
             ContentUri: contentUri?.ToString() ?? string.Empty,
             Year: year > 0 ? year : null
         );
+    }
+
+    // Prefers the cursor's genre column (present when the projection includes it on API 30+); otherwise
+    // falls back to the pre-built genre-members map. Reading the column is null-safe so a projection that
+    // requested it but has no value for this row simply yields no genre rather than throwing.
+    static string? ReadGenre(ICursor cursor, long id, Dictionary<long, string>? genreMap)
+    {
+        var genreCol = cursor.GetColumnIndex(GenreColumn);
+        if (genreCol >= 0 && !cursor.IsNull(genreCol))
+        {
+            var genre = cursor.GetString(genreCol);
+            if (!string.IsNullOrWhiteSpace(genre))
+                return genre;
+        }
+
+        string? mapped = null;
+        genreMap?.TryGetValue(id, out mapped);
+        return mapped;
     }
 
     Dictionary<long, string> BuildGenreMap()
@@ -465,7 +500,7 @@ public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) :
     {
         var tracks = await Task.Run(() =>
         {
-            var genreMap = BuildGenreMap();
+            var genreMap = GenreColumnAvailable ? null : BuildGenreMap();
             var (selection, selectionArgs) = BuildAudioSelection(filter);
             var result = new List<MusicMetadata>();
 
@@ -519,7 +554,7 @@ public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) :
             if (!long.TryParse(trackId, out var id))
                 return (MusicMetadata?)null;
 
-            var genreMap = BuildGenreMap();
+            var genreMap = GenreColumnAvailable ? null : BuildGenreMap();
             var selection = MediaStore.Audio.Media.InterfaceConsts.Id + " = ? AND " +
                 MediaStore.Audio.Media.InterfaceConsts.IsMusic + " != 0";
 
@@ -558,7 +593,7 @@ public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) :
 
         var byId = await Task.Run(() =>
         {
-            var genreMap = BuildGenreMap();
+            var genreMap = GenreColumnAvailable ? null : BuildGenreMap();
             var placeholders = string.Join(",", ids.Select(_ => "?"));
             var selection = MediaStore.Audio.Media.InterfaceConsts.Id + " IN (" + placeholders + ") AND " +
                 MediaStore.Audio.Media.InterfaceConsts.IsMusic + " != 0";
@@ -836,7 +871,7 @@ public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) :
 
         return await Task.Run(() =>
         {
-            var genreMap = BuildGenreMap();
+            var genreMap = GenreColumnAvailable ? null : BuildGenreMap();
             var tracks = new List<MusicMetadata>();
 
             if (!long.TryParse(playlistId, out var id))
@@ -844,7 +879,7 @@ public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) :
 
             var membersUri = MediaStore.Audio.Playlists.Members.GetContentUri("external", id)!;
 
-            var projection = new[]
+            var projectionColumns = new List<string>
             {
                 MediaStore.Audio.Playlists.Members.AudioId,
                 MediaStore.Audio.Media.InterfaceConsts.Title,
@@ -856,6 +891,9 @@ public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) :
                 MediaStore.Audio.Media.InterfaceConsts.Year,
                 MediaStore.Audio.Playlists.Members.PlayOrder
             };
+            if (GenreColumnAvailable)
+                projectionColumns.Add(GenreColumn);
+            var projection = projectionColumns.ToArray();
 
             using var cursor = Resolver.Query(
                 membersUri,
@@ -882,7 +920,7 @@ public class MediaLibrary(AndroidPlatform platform, PlayCountStore playCounts) :
                         Uri.Parse("content://media/external/audio/albumart")!, albumId
                     );
 
-                    genreMap.TryGetValue(trackId, out var genre);
+                    var genre = ReadGenre(cursor, trackId, genreMap);
 
                     tracks.Add(new MusicMetadata(
                         Id: trackId.ToString(),

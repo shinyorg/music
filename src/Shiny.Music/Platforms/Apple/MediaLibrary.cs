@@ -347,22 +347,38 @@ public class MediaLibrary : IMediaLibrary
             try
             {
                 if (!ulong.TryParse(trackId, out var pid))
+                {
+                    MusicDiagnostics.Log($"Analyze[{trackId}]: invalid track id");
                     return (AudioLevels?)null;
+                }
 
                 var query = MPMediaQuery.SongsQuery;
                 var item = query.Items?.FirstOrDefault(i => i.PersistentID == pid);
-                var assetUrl = item?.AssetURL;
+                if (item == null)
+                {
+                    MusicDiagnostics.Log($"Analyze[{trackId}]: item not found in library");
+                    return null;
+                }
+
+                var assetUrl = item.AssetURL;
                 if (assetUrl == null)
-                    return null; // cloud-only / DRM item with no local asset URL
+                {
+                    // A very likely cause when playing: MPMusicPlayerController holds the item and iOS stops
+                    // vending its AssetURL, so there is nothing to read.
+                    MusicDiagnostics.Log($"Analyze[{trackId}]: AssetURL is null (cloud/DRM, or the item is in use by the system player during playback)");
+                    return null;
+                }
 
                 var sourceAsset = new AVUrlAsset(assetUrl);
                 if (!sourceAsset.Exportable)
-                    return null; // DRM-protected — cannot decode to PCM
+                {
+                    MusicDiagnostics.Log($"Analyze[{trackId}]: asset not exportable (DRM-protected)");
+                    return null;
+                }
 
                 // Export to a temporary file and analyze THAT, rather than reading the ipod-library asset
-                // directly: while the system player (MPMusicPlayerController) is playing the track it owns
-                // that asset, and an AVAssetReader on it fails — so analysis would only work while stopped.
-                // A separate temp file is independent of playback.
+                // directly (an AVAssetReader on it fails while the system player owns it). A separate temp
+                // file is independent of playback.
                 tempPath = Path.Combine(Path.GetTempPath(), $"shinymusic-analyze-{Guid.NewGuid():N}.m4a");
                 var session = new AVAssetExportSession(sourceAsset, AVAssetExportSessionPreset.AppleM4A)
                 {
@@ -373,18 +389,25 @@ public class MediaLibrary : IMediaLibrary
                 var exported = new TaskCompletionSource<bool>();
                 session.ExportAsynchronously(() => exported.SetResult(session.Status == AVAssetExportSessionStatus.Completed));
                 if (!await exported.Task.ConfigureAwait(false))
+                {
+                    MusicDiagnostics.Log($"Analyze[{trackId}]: export failed status={session.Status} error={session.Error?.LocalizedDescription ?? "(none)"}");
                     return null;
+                }
 
                 var fileAsset = new AVUrlAsset(NSUrl.FromFilename(tempPath));
                 var track = fileAsset.GetTracks(AVMediaTypes.Audio).FirstOrDefault();
                 if (track == null)
+                {
+                    MusicDiagnostics.Log($"Analyze[{trackId}]: exported file has no audio track");
                     return null;
+                }
 
-                var duration = TimeSpan.FromSeconds(item!.PlaybackDuration);
+                var duration = TimeSpan.FromSeconds(item.PlaybackDuration);
                 return DecodeLevels(fileAsset, track, duration, win);
             }
-            catch
+            catch (Exception ex)
             {
+                MusicDiagnostics.Log($"Analyze[{trackId}]: exception {ex.GetType().Name}: {ex.Message}");
                 return null;
             }
             finally
