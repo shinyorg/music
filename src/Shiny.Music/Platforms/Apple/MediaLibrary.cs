@@ -76,8 +76,7 @@ public class MediaLibrary : IMediaLibrary
             if (!ulong.TryParse(trackId, out var pid))
                 return (MusicMetadata?)null;
 
-            var query = MPMediaQuery.SongsQuery;
-            var item = query.Items?.FirstOrDefault(i => i.PersistentID == pid);
+            var item = FindSongById(pid);
             return item == null ? (MusicMetadata?)null : ToMusicMetadata(item);
         });
     }
@@ -272,8 +271,7 @@ public class MediaLibrary : IMediaLibrary
             if (File.Exists(filePath))
                 return filePath;
 
-            var query = MPMediaQuery.SongsQuery;
-            var item = query.Items?.FirstOrDefault(i => i.PersistentID == pid);
+            var item = FindSongById(pid);
             var artwork = item?.Artwork;
             if (artwork == null)
                 return (string?)null;
@@ -301,8 +299,7 @@ public class MediaLibrary : IMediaLibrary
                 if (!ulong.TryParse(track.Id, out var pid))
                     return false;
 
-                var query = MPMediaQuery.SongsQuery;
-                var item = query.Items?.FirstOrDefault(i => i.PersistentID == pid);
+                var item = FindSongById(pid);
                 var assetUrl = item?.AssetURL;
                 if (assetUrl == null)
                     return false;
@@ -352,8 +349,7 @@ public class MediaLibrary : IMediaLibrary
                     return (AudioLevels?)null;
                 }
 
-                var query = MPMediaQuery.SongsQuery;
-                var item = query.Items?.FirstOrDefault(i => i.PersistentID == pid);
+                var item = FindSongById(pid);
                 if (item == null)
                 {
                     MusicDiagnostics.Log($"Analyze[{trackId}]: item not found in library");
@@ -585,6 +581,22 @@ public class MediaLibrary : IMediaLibrary
 
     public Task RemoveTrackFromPlaylistAsync(string playlistId, string trackId)
         => customPlaylists.RemoveTrackAsync(playlistId, trackId);
+
+    // Resolves a single song by persistent ID via an indexed MediaPlayer predicate query, instead of
+    // materializing the whole SongsQuery and scanning every item in managed code. The old scan was O(N)
+    // per lookup; done per-row for album art (GetAlbumArtPathAsync) across a full list that is O(N^2) and
+    // was the dominant cost of loading a large library on Apple.
+    static MPMediaItem? FindSongById(ulong persistentId)
+    {
+        var query = MPMediaQuery.SongsQuery;
+        query.AddFilterPredicate(
+            MPMediaPropertyPredicate.PredicateWithValue(
+                NSNumber.FromUInt64(persistentId),
+                MPMediaItem.PersistentIDProperty.ToString()
+            )
+        );
+        return query.Items?.FirstOrDefault();
+    }
 
     IEnumerable<MPMediaItem> GetFilteredItems(MusicFilter? filter)
     {
