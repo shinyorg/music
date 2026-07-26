@@ -10,7 +10,8 @@ namespace MusicSample;
 public partial class PlayerViewModel(
     IMusicPlayer player,
     IMediaLibrary library,
-    ILyricsProvider lyricsProvider
+    ILyricsProvider lyricsProvider,
+    IAudioOutputDevices outputs
 ) : ObservableObject, IPageLifecycleAware
 {
     IDispatcherTimer? positionTimer;
@@ -32,6 +33,7 @@ public partial class PlayerViewModel(
     [ObservableProperty] double sliderValue;
     [ObservableProperty] bool hasLyrics;
     [ObservableProperty] int playCount;
+    [ObservableProperty] string outputRouteText = "";
 
     public ObservableCollection<LyricLineVM> LyricLines { get; } = [];
 
@@ -48,6 +50,8 @@ public partial class PlayerViewModel(
     {
         player.StateChanged += OnStateChanged;
         player.PlaybackCompleted += OnPlaybackCompleted;
+        outputs.Changed += OnOutputChanged;
+        ShowOutputRoute(outputs.Current);
 
         // Sync UI to current player state
         PlayPauseIcon = player.State == PlaybackState.Playing ? "⏸" : "▶";
@@ -58,7 +62,26 @@ public partial class PlayerViewModel(
     {
         player.StateChanged -= OnStateChanged;
         player.PlaybackCompleted -= OnPlaybackCompleted;
+        outputs.Changed -= OnOutputChanged;
         StopPositionTimer();
+    }
+
+    // Route changes arrive off the UI thread (AudioDeviceCallback / AVAudioSession notification).
+    void OnOutputChanged(object? sender, AudioOutputDevice? device)
+        => MainThread.BeginInvokeOnMainThread(() => ShowOutputRoute(device));
+
+    void ShowOutputRoute(AudioOutputDevice? device)
+    {
+        if (device == null)
+        {
+            OutputRouteText = "";
+            return;
+        }
+        var icon = device.IsBluetooth() ? "🎧" :
+                   device.IsWired() ? "🔌" :
+                   device.IsExternalSystem() ? "📺" : "🔈";
+
+        OutputRouteText = $"{icon} {device.Name} · {device.Type}";
     }
 
     void OnStateChanged(object? sender, PlaybackState state)

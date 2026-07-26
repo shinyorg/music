@@ -14,6 +14,7 @@ A .NET library for accessing the device music library on **Android**, **iOS**, a
 - Playing music files from the device library
 - Fetching lyrics (plain text and synced LRC format)
 - Retrieving album artwork
+- Detecting the audio output route (speaker, wired/USB, Bluetooth, car, HDMI, AirPlay) and reacting when it changes
 - Copying music files (where permitted)
 - Checking for active streaming subscriptions
 - Managing playlists — create, remove, and add/remove tracks via `IMediaLibrary`
@@ -270,6 +271,41 @@ meter.Dispose();
 
 You can also sample a level for any position directly — `audioLevels.SampleAt(position)` returns a `VuLevel` — which is exactly what the implied meter does under the hood.
 
+## Audio Output Route (`IAudioOutputDevices`)
+
+`IAudioOutputDevices` tells you where the music is going — the built-in speaker, wired or USB headphones, a Bluetooth speaker, the car, HDMI or AirPlay — and raises `Changed` when that route changes (headphones unplugged, Bluetooth speaker connects). It is **output only** and **read-only**: choosing the output is the user's job through the OS route picker or Control Center. No permission is required.
+
+```csharp
+var outputs = serviceProvider.GetRequiredService<IAudioOutputDevices>();
+
+var current = outputs.Current;                 // null when the platform reports no route
+if (current != null)
+{
+    Console.WriteLine($"Playing on {current.Name} ({current.Type})");
+
+    if (current.IsBluetooth())
+        ShowBluetoothIcon();
+    else if (current.IsWired())                // wired headphones/headset *or* USB-C/DAC
+        ShowWiredIcon();
+    else if (current.IsBuiltIn())
+        ShowSpeakerIcon();
+}
+
+// Pause when the user yanks the headphones out and the audio falls back to the loudspeaker
+outputs.Changed += (_, device) =>
+{
+    if (device?.IsBuiltIn() == true)
+        MainThread.BeginInvokeOnMainThread(player.Pause);
+};
+```
+
+`Changed` is raised on whatever thread the OS delivers the route notification on — marshal to the UI thread before touching UI state.
+
+**Platform behaviour**
+
+- **Android** — `GetOutputs()` returns every connected output. `AudioDeviceInfo` carries no "active" flag, so `Current` is *derived*: the connected outputs are ranked the way the platform's own media routing policy does (Bluetooth → wired → USB → car/HDMI → built-in speaker, earpiece last) and the winner is reported. A very good approximation for media playback, but not a platform guarantee.
+- **Apple** — `Current` comes straight from `AVAudioSession.CurrentRoute`. The OS only exposes the *active* route's ports, so `GetOutputs()` returns that route (usually one entry) rather than every reachable AirPlay/Bluetooth destination — it is not a device picker. A mic-equipped wired headset renders as `WiredHeadphones`, since Apple only reports the headset mic on the input side.
+
 ## API Reference
 
 ### `IMediaLibrary`
@@ -319,6 +355,35 @@ You can also sample a level for any position directly — `audioLevels.SampleAt(
 | `VolumeChanged` | Event (`float`, 0.0–1.0) fired when the device media volume changes — hardware buttons, Control Center, or a successful `Volume` set |
 | `StateChanged` | Event fired when playback state changes |
 | `PlaybackCompleted` | Event fired when a track finishes |
+
+### `IAudioOutputDevices`
+
+| Member | Description |
+|---|---|
+| `Current` | The `AudioOutputDevice` music is playing through, or `null`. Reported by the OS on Apple; derived from a route-priority ranking of connected outputs on Android |
+| `GetOutputs()` | All output routes the OS reports, with `IsCurrent` set on the active one. Full list on Android; the active route only on Apple |
+| `Changed` | Event (`AudioOutputDevice?`) fired when the active output route changes — may be raised on a background thread |
+
+### `AudioOutputDevice`
+
+| Property | Type | Description |
+|---|---|---|
+| `Id` | `string` | Stable platform identifier (Apple port UID / Android `AudioDeviceInfo.Id`) |
+| `Name` | `string` | Human-friendly name, e.g. "JBL Flip 5" or "Speaker" |
+| `Type` | `AudioOutputType` | Normalized route type |
+| `IsCurrent` | `bool` | Whether this is the route in use right now |
+
+`AudioOutputType` values: `Unknown`, `BuiltInSpeaker`, `BuiltInReceiver`, `WiredHeadphones`, `WiredHeadset`, `Bluetooth` (HFP/SCO/LE), `BluetoothA2dp`, `Usb`, `CarAudio`, `Hdmi`, `AirPlay`.
+
+Rather than switching on every value, use the `AudioOutputExtensions` helpers — each works on both `AudioOutputDevice` and `AudioOutputType`:
+
+| Method | True for |
+|---|---|
+| `IsWired()` | `WiredHeadphones`, `WiredHeadset`, `Usb` — USB counts because on handsets with no 3.5mm jack the wired option *is* USB-C |
+| `IsBluetooth()` | `Bluetooth`, `BluetoothA2dp` |
+| `IsBuiltIn()` | `BuiltInSpeaker`, `BuiltInReceiver` — nothing plugged in or paired |
+| `IsHeadphones()` | Wired or Bluetooth headphones/headsets — the "audio is private to the user" check |
+| `IsExternalSystem()` | `CarAudio`, `Hdmi`, `AirPlay` — playback has left the device |
 
 ### `ILyricsProvider`
 

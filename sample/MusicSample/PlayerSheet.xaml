@@ -49,6 +49,12 @@
                            FontSize="13"
                            TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
                            HorizontalTextAlignment="Center" />
+                    <!-- Current audio output route (IAudioOutputDevices) -->
+                    <Label Text="{Binding OutputRouteText}"
+                           FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                           HorizontalTextAlignment="Center"
+                           Margin="0,4,0,0" />
                     <Label FontSize="12"
                            TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
                            HorizontalTextAlignment="Center"

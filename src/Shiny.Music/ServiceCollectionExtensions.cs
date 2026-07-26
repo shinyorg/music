@@ -10,8 +10,8 @@ namespace Shiny;
 public static class MusicServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers <see cref="IMediaLibrary"/> and <see cref="IMusicPlayer"/> with the service collection.
-    /// Both are registered as singletons using the platform-specific implementations.
+    /// Registers <see cref="IMediaLibrary"/>, <see cref="IMusicPlayer"/> and <see cref="IAudioOutputDevices"/>
+    /// with the service collection. All are registered as singletons using the platform-specific implementations.
     /// </summary>
     /// <param name="services">The service collection to add to.</param>
     /// <returns>The service collection for chaining.</returns>
@@ -26,6 +26,7 @@ public static class MusicServiceCollectionExtensions
 #if ANDROID || APPLE
         services.TryAddSingleton<IMediaLibrary, Shiny.Music.MediaLibrary>();
         services.TryAddSingleton<IMusicPlayer, Shiny.Music.MusicPlayer>();
+        services.TryAddSingleton<IAudioOutputDevices, Shiny.Music.AudioOutputDevices>();
         services.TryAddSingleton<ILyricsProvider>(sp => new LrcLibLyricsProvider(new HttpClient()));
 #endif
         return services;
