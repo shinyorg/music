@@ -446,6 +446,8 @@ All properties are optional and combined with AND logic. Pass to `GetTracksAsync
 
 The `sample/MusicSample` project is a .NET MAUI app that demonstrates all library features including browsing, filtering, playback, album art display, and lyrics with synced highlighting.
 
+The **Audio Output** screen (Navigate → Audio Output) is a live demo of `IAudioOutputDevices` and the volume API: it shows the current route with its `IsWired()`/`IsBluetooth()`/`IsBuiltIn()`/`IsHeadphones()`/`IsExternalSystem()` classification, the full `GetOutputs()` list, a timestamped log of `Changed` events (plug/unplug to watch it fire), and the device media volume driven by `Volume`/`VolumeChanged` — with the slider disabled on Apple, where `IsVolumeControlSupported` is `false`. The player sheet also shows the current route under the track info.
+
 ### Running the Sample
 
 ```bash

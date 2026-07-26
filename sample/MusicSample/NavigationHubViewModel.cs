@@ -11,6 +11,9 @@ public partial class NavigationHubViewModel(INavigator navigator) : ObservableOb
     Task OpenDucking() => navigator.NavigateTo("Ducking");
 
     [RelayCommand]
+    Task OpenAudioOutput() => navigator.NavigateTo("AudioOutput");
+
+    [RelayCommand]
     Task OpenSpotify() => navigator.NavigateTo("Spotify");
 
     [RelayCommand]

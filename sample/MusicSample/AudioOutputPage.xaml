@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:MusicSample"
+             x:Class="MusicSample.AudioOutputPage"
+             x:DataType="local:AudioOutputViewModel"
+             Title="Audio Output"
+             BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16,16,16,32" Spacing="16">
+
+            <Label Text="Where the music is coming out, and how loud. Plug in headphones or connect a Bluetooth speaker and watch it update live."
+                   FontSize="13"
+                   TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+
+            <!-- Current Route -->
+            <Border StrokeThickness="0"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                    Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="16" />
+                </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="Black" Offset="0,3" Radius="10" Opacity="0.08" />
+                </Border.Shadow>
+
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="56,*" ColumnSpacing="14">
+                        <Label Grid.Column="0"
+                               Text="{Binding CurrentIcon}"
+                               FontSize="40"
+                               VerticalOptions="Center" />
+                        <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                            <Label Text="IAudioOutputDevices.Current"
+                                   FontSize="11"
+                                   TextColor="{StaticResource Gray400}" />
+                            <Label Text="{Binding CurrentName}"
+                                   FontSize="19"
+                                   FontAttributes="Bold"
+                                   LineBreakMode="TailTruncation" />
+                            <Label Text="{Binding CurrentType}"
+                                   FontSize="13"
+                                   TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+                            <Label Text="{Binding CurrentId}"
+                                   FontSize="11"
+                                   IsVisible="{Binding HasCurrent}"
+                                   TextColor="{StaticResource Gray400}"
+                                   LineBreakMode="TailTruncation" />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <!-- Classification helpers -->
+                    <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Center">
+                        <Border IsVisible="{Binding IsWired}" StrokeThickness="0" Margin="0,4,6,0" Padding="10,4"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Tertiary}}">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                            <Label Text="IsWired()" FontSize="12" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        </Border>
+                        <Border IsVisible="{Binding IsBluetooth}" StrokeThickness="0" Margin="0,4,6,0" Padding="10,4"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Tertiary}}">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                            <Label Text="IsBluetooth()" FontSize="12" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        </Border>
+                        <Border IsVisible="{Binding IsBuiltIn}" StrokeThickness="0" Margin="0,4,6,0" Padding="10,4"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Tertiary}}">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                            <Label Text="IsBuiltIn()" FontSize="12" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        </Border>
+                        <Border IsVisible="{Binding IsHeadphones}" StrokeThickness="0" Margin="0,4,6,0" Padding="10,4"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Tertiary}}">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                            <Label Text="IsHeadphones()" FontSize="12" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        </Border>
+                        <Border IsVisible="{Binding IsExternalSystem}" StrokeThickness="0" Margin="0,4,6,0" Padding="10,4"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Tertiary}}">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                            <Label Text="IsExternalSystem()" FontSize="12" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        </Border>
+                    </FlexLayout>
+
+                    <Button Text="Refresh"
+                            FontSize="14"
+                            HeightRequest="40"
+                            CornerRadius="12"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource Tertiary}}"
+                            TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                            Command="{Binding RefreshCommand}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Volume -->
+            <Border StrokeThickness="0"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                    Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="16" />
+                </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="Black" Offset="0,3" Radius="10" Opacity="0.08" />
+                </Border.Shadow>
+
+                <VerticalStackLayout Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Device media volume" FontSize="16" FontAttributes="Bold" VerticalOptions="Center" />
+                        <Label Grid.Column="1"
+                               Text="{Binding VolumeText}"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                               VerticalOptions="Center" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                        <Label Grid.Column="0" Text="🔈" FontSize="16" VerticalOptions="Center" />
+                        <Slider Grid.Column="1"
+                                Minimum="0"
+                                Maximum="1"
+                                Value="{Binding VolumeValue}"
+                                IsEnabled="{Binding CanSetVolume}"
+                                MinimumTrackColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                MaximumTrackColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
+                        <Label Grid.Column="2" Text="🔊" FontSize="16" VerticalOptions="Center" />
+                    </Grid>
+
+                    <Label Text="{Binding VolumeNote}"
+                           FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- All Outputs -->
+            <Label Text="GetOutputs()" FontSize="16" FontAttributes="Bold" />
+            <Label Text="Android lists every connected output. Apple exposes only the active route's ports, so expect a single entry there."
+                   FontSize="12"
+                   TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+
+            <Border StrokeThickness="0"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                    Padding="8">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="16" />
+                </Border.StrokeShape>
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Outputs}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="local:AudioOutputItem">
+                            <Grid Padding="8,10" ColumnDefinitions="34,*,Auto" ColumnSpacing="10">
+                                <Label Grid.Column="0" Text="{Binding Icon}" FontSize="22" VerticalOptions="Center" />
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
+                                    <Label Text="{Binding Name}" FontSize="15" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding Type}" FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+                                    <Label Text="{Binding Flags}" FontSize="11" TextColor="{StaticResource Gray400}" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="2"
+                                       Text="CURRENT"
+                                       FontSize="10"
+                                       FontAttributes="Bold"
+                                       IsVisible="{Binding IsCurrent}"
+                                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                       VerticalOptions="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Change Log -->
+            <Label Text="Changed events" FontSize="16" FontAttributes="Bold" />
+            <Label Text="Unplug your headphones or connect a speaker — each route change is logged here."
+                   FontSize="12"
+                   TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+
+            <Border StrokeThickness="0"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}"
+                    Padding="12">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="16" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding RouteLog}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <Label Text="{Binding .}" FontSize="12" FontFamily="Monospace"
+                                   TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                    <BindableLayout.EmptyView>
+                        <Label Text="No route changes yet"
+                               FontSize="12"
+                               TextColor="{StaticResource Gray400}" />
+                    </BindableLayout.EmptyView>
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
