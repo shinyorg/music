@@ -136,6 +136,43 @@ Add these to your `AndroidManifest.xml`:
 - `HasStreamingSubscriptionAsync()` always returns `false`
 - **Copy**: Reads from the `ContentResolver` input stream. Works for all locally stored music files.
 
+#### Background Playback
+
+Background playback is **on by default** and needs no manifest edits — `Shiny.Music` contributes
+`WAKE_LOCK`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, and `POST_NOTIFICATIONS`, plus the
+media-playback service declaration, to your merged manifest automatically.
+
+Playback runs in a Media3 `MediaSessionService`, which gives you:
+
+- **Durable playback** — a backgrounded app with no foreground service is a cached process and is the first
+  thing the low-memory killer takes. Before v4.2 playback survived backgrounding only by luck of process
+  lifetime; now it is protected.
+- **Screen-off stability** — the player holds a partial wake lock, so the CPU can't suspend mid-decode.
+- **Lock screen & notification transport** — play/pause/seek, track title, artist, and album art.
+- **Headset and Bluetooth buttons**, Android Auto, and Wear.
+- **Audio focus** — pauses when another app takes playback, ducks for navigation prompts, pauses for calls
+  and resumes after.
+
+Tune it through `AddShinyMusic`:
+
+```csharp
+builder.Services.AddShinyMusic(o =>
+{
+    o.EnableBackgroundPlayback = true;          // default
+    o.NotificationChannelName  = "Now Playing";
+    o.AutoResumeAfterInterruption = true;       // default — resume after a call
+    o.RespectAudioFocus = true;                 // default
+    o.AudioFocusDuckLevel = 0.3;                // level when the system asks us to duck
+});
+```
+
+If you set `EnableBackgroundPlayback = false`, the service never starts. To also drop the permissions from
+your app, use the manifest merger's remove node:
+
+```xml
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" tools:node="remove" />
+```
+
 ---
 
 ### Apple Platforms (iOS, Mac Catalyst)
@@ -157,6 +194,8 @@ Add these to your `AndroidManifest.xml`:
 - **Playback** uses `MPMusicPlayerController.ApplicationMusicPlayer` for all tracks — local items by persistent ID, and streaming catalog items by catalog id via `MPMusicPlayerStoreQueueDescriptor`
 - `HasStreamingSubscriptionAsync()` checks MusicKit `MusicSubscription.GetCurrentAsync`
 - **Catalog search** (`SearchCatalogAsync`) uses MusicKit `MusicCatalogSearchRequest` to search the Apple Music streaming catalog — results need not be in the user's library and are playable via `PlayAsync` when the user has an active subscription. The first call prompts for MusicKit authorization. Catalog tracks are streaming-only (empty `ContentUri`, not copyable).
+- **Background playback** needs no configuration — `MPMusicPlayerController` plays out-of-process and continues when the app is backgrounded. `MusicPlayerOptions.EnableBackgroundPlayback` is ignored here.
+- **Interruptions** (a phone call) pause playback; when the interruption ends and the OS signals `ShouldResume`, the track resumes automatically. Set `MusicPlayerOptions.AutoResumeAfterInterruption = false` to stay paused instead.
 - **Playlist management** uses locally-stored custom playlists (system playlists from `MPMediaQuery.PlaylistsQuery` are read-only)
 - **Copy Limitations**:
   - Non-DRM tracks can be exported via `AVAssetExportSession`
@@ -355,6 +394,20 @@ outputs.Changed += (_, device) =>
 | `VolumeChanged` | Event (`float`, 0.0–1.0) fired when the device media volume changes — hardware buttons, Control Center, or a successful `Volume` set |
 | `StateChanged` | Event fired when playback state changes |
 | `PlaybackCompleted` | Event fired when a track finishes |
+
+### `MusicPlayerOptions`
+
+Passed to `AddShinyMusic(o => ...)`.
+
+| Property | Default | Description |
+|---|---|---|
+| `EnableBackgroundPlayback` | `true` | **Android**: hosts playback in a media-playback foreground service with a `MediaSession` (lock screen, notification, headset buttons, protection from the low-memory killer). **Apple**: ignored — playback is always out-of-process |
+| `NotificationChannelId` | `shiny.music.playback` | **Android only.** Channel id for the playback notification |
+| `NotificationChannelName` | `Music Playback` | **Android only.** User-visible channel name in system notification settings |
+| `NotificationIconResource` | `null` | **Android only.** Small-icon drawable; falls back to the app's notification icon |
+| `AutoResumeAfterInterruption` | `true` | Resume after a transient interruption ends — a call on either platform, transient audio-focus loss on Android |
+| `RespectAudioFocus` | `true` | **Android only.** Participate in system audio focus. Turning this off makes the player a bad citizen (two apps playing at once) |
+| `AudioFocusDuckLevel` | `0.3` | **Android only.** Attenuation when the system asks us to duck. Combined with an application `Duck()` by taking the lower of the two, so neither can un-duck the other |
 
 ### `IAudioOutputDevices`
 

@@ -1,5 +1,12 @@
 <Project>
   <!--
+    Android background-playback permissions are NOT contributed here. A build/*.targets file only reaches
+    consumers who reference the NuGet package, so a ProjectReference consumer would silently ship without
+    them; they are declared as assembly attributes in Platforms/Android/Permissions.cs instead, which flows
+    through both reference styles.
+  -->
+
+  <!--
     ITMS-90426 fix: inject SwiftSupport folder into the IPA.
     ShinyMusicKit.framework is a Swift framework, so the IPA must contain
     SwiftSupport/iphoneos/ with the Swift standard libraries or App Store Connect

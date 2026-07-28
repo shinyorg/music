@@ -34,6 +34,21 @@ triggers:
   - CreateVuMeter
   - audio levels event
   - copy track
+  - background playback
+  - background audio
+  - lock screen controls
+  - media notification
+  - MediaSession
+  - foreground service
+  - audio focus
+  - MusicPlayerOptions
+  - EnableBackgroundPlayback
+  - AutoResumeAfterInterruption
+  - RespectAudioFocus
+  - AudioFocusDuckLevel
+  - NotificationChannelName
+  - keep playing in background
+  - screen off playback
   - audio library
   - MediaStore audio
   - MPMediaQuery
@@ -198,6 +213,21 @@ public static class MauiProgram
 }
 ```
 
+`AddShinyMusic` takes an optional configuration callback for `MusicPlayerOptions`. Only pass it when the
+user asks to change background-playback, notification, or audio-focus behaviour — the defaults are correct
+for a normal music app.
+
+```csharp
+builder.Services.AddShinyMusic(o =>
+{
+    o.EnableBackgroundPlayback    = true;              // default; Android foreground service + MediaSession
+    o.NotificationChannelName     = "Now Playing";     // Android only
+    o.AutoResumeAfterInterruption = true;              // default; resume after a call
+    o.RespectAudioFocus           = true;              // default; pause/duck for other apps
+    o.AudioFocusDuckLevel         = 0.3;               // Android only
+});
+```
+
 ## Platform Configuration
 
 ### Android — AndroidManifest.xml
@@ -214,6 +244,9 @@ public static class MauiProgram
 - **API 33+**: Uses the granular `READ_MEDIA_AUDIO` permission (audio files only).
 - **API < 33**: Falls back to `READ_EXTERNAL_STORAGE`.
 - Minimum supported API level: 24 (Android 7.0).
+- **Background-playback permissions are contributed automatically** — do NOT add `WAKE_LOCK`,
+  `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, `POST_NOTIFICATIONS`, or a `<service>`
+  element for playback. `Shiny.Music` merges them into the app manifest itself.
 
 ### Apple Platforms (iOS, Mac Catalyst) — Info.plist
 
@@ -447,11 +480,33 @@ if (await library.HasStreamingSubscriptionAsync())
 }
 ```
 
+### MusicPlayerOptions
+
+Configured through `AddShinyMusic(o => ...)`.
+
+| Property | Default | Platform | Description |
+|---|---|---|---|
+| `EnableBackgroundPlayback` | `true` | Android | Hosts playback in a Media3 `MediaSessionService` — lock-screen/notification transport, headset and Bluetooth buttons, Android Auto/Wear, and protection from the low-memory killer. Ignored on Apple, where `MPMusicPlayerController` is always out-of-process |
+| `NotificationChannelId` | `shiny.music.playback` | Android | Playback notification channel id |
+| `NotificationChannelName` | `Music Playback` | Android | User-visible channel name |
+| `NotificationIconResource` | `null` | Android | Small-icon drawable; falls back to the app's notification icon |
+| `AutoResumeAfterInterruption` | `true` | Both | Resume after a transient interruption ends (a call; transient audio-focus loss on Android) |
+| `RespectAudioFocus` | `true` | Android | Participate in system audio focus |
+| `AudioFocusDuckLevel` | `0.3` | Android | Attenuation when the system asks us to duck |
+
+**Do not hand-write manifest entries for background playback.** `Shiny.Music` contributes `WAKE_LOCK`,
+`FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, `POST_NOTIFICATIONS` and the `<service>`
+declaration to the app's merged manifest automatically. Only the music-library read permissions
+(`READ_MEDIA_AUDIO` / `READ_EXTERNAL_STORAGE`) and `RECORD_AUDIO` (for the live VU meter) must be declared
+by the app.
+
 ### IMusicPlayer
 
 Controls playback of music files from the device library. Implements `IDisposable`.
 
-- **Android**: Uses `Android.Media.MediaPlayer` with content URIs from MediaStore.
+- **Android**: Routes each track to a playback backend — `Android.Media.MediaPlayer` with content URIs from
+  MediaStore for local files. Volume, output-device routing, audio focus, ducking, and the MediaSession sit
+  above that routing, so they behave identically no matter which backend is playing.
 - **Apple platforms**: Uses `MPMusicPlayerController.ApplicationMusicPlayer`. For local tracks, looks up the `MPMediaItem` by persistent ID via `MPMediaQuery` and sets the queue. For streaming catalog tracks (those with a `CatalogId` from `SearchCatalogAsync`), enqueues by catalog id via `MPMusicPlayerStoreQueueDescriptor` — no library membership required, but an active subscription is.
 
 #### PlayAsync
@@ -544,6 +599,7 @@ await using (player.Duck(new DuckOptions { Level = 0.2 }))
 - Returns a **no-op scope** if nothing is currently playing (safe to call unconditionally).
 - Check `player.IsDucked` to know whether a duck is active.
 - **Android**: lowers this player's own track, honoring `DuckOptions.Level`, `FadeIn`, and `FadeOut` exactly.
+- **Android — system ducking**: when the OS asks the app to duck for a transient sound (a navigation prompt), that duck is applied at `MusicPlayerOptions.AudioFocusDuckLevel` independently of `Duck()`. The **lower of the two wins**, so a nav prompt ending mid-announcement will not restore full volume under an active `Duck()`, and vice versa.
 - **Apple platforms**: activates `AVAudioSession` with `DuckOthers`. `Level` and the fade durations are **advisory only** — the OS controls duck depth and ramp. Announcement audio played through the app's audio session (an `AVAudioPlayer`, or `AVSpeechSynthesizer` with `UsesApplicationAudioSession = true`) plays at full volume over the ducked music; only other out-of-process audio is ducked.
 
 #### DuckOptions

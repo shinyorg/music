@@ -3,54 +3,91 @@ using Android.Database;
 using Android.Media;
 using Android.Provider;
 using Shiny.Music.Internal;
-using Uri = Android.Net.Uri;
 using Stream = Android.Media.Stream;
 
 namespace Shiny.Music;
 
-public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
+/// <summary>
+/// The Android <see cref="IMusicPlayer"/>. Routes each track to the first <see cref="IPlaybackBackend"/>
+/// that reports <see cref="IPlaybackBackend.CanPlay"/>, and owns everything the OS controls rather than
+/// the playback engine: system volume, audio focus, ducking, and the media-playback foreground service.
+/// </summary>
+public class MusicPlayer : IMusicPlayer
 {
-    Android.Media.MediaPlayer? player;
-    MusicMetadata? currentTrack;
-    PlaybackState state = PlaybackState.Stopped;
-    bool prepared;
-    int audioSessionId = -1;
+    readonly AndroidPlatform platform;
+    readonly PlayCountStore playCounts;
+    readonly MusicPlayerOptions options;
+    readonly IReadOnlyList<IPlaybackBackend> backends;
+    readonly AudioFocusManager? focus;
 
-    // A stable audio session id reused by every MediaPlayer, so a Visualizer-based VU meter attached to it
-    // keeps working across track changes (each PlayAsync creates a fresh MediaPlayer).
-    internal int AudioSessionId => this.audioSessionId >= 0
-        ? this.audioSessionId
-        : (this.audioSessionId = this.AudioManager.GenerateAudioSessionId());
+    IPlaybackBackend? active;
+    bool serviceRunning;
+    bool resumeOnFocusGain;
+
+    // Ducking is the lower of two independent requests: one from the application (Duck()) and one from the
+    // system (AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK). Tracking them separately means neither can un-duck the
+    // other - a nav prompt ending mid-announcement no longer restores full volume under an active Duck().
+    float userDuck = 1f;
+    float osDuck = 1f;
 
     DuckScope? activeDuck;
     CancellationTokenSource? fadeCts;
-    float currentVolume = 1f;
 
     AudioManager? audioManager;
     VolumeObserver? volumeObserver;
     int lastVolumeStep = -1;
 
-    public PlaybackState State => this.state;
-    public MusicMetadata? CurrentTrack => this.currentTrack;
+    // Internal because IPlaybackBackend is: the seam is not a public API commitment while the Apple Music
+    // package is experimental. AddShinyMusic registers this through a factory rather than by type, since
+    // ActivatorUtilities only considers public constructors.
+    internal MusicPlayer(
+        AndroidPlatform platform,
+        PlayCountStore playCounts,
+        MusicPlayerOptions options,
+        IEnumerable<IPlaybackBackend> backends
+    )
+    {
+        this.platform = platform;
+        this.playCounts = playCounts;
+        this.options = options;
+        this.backends = backends.ToList();
+
+        if (this.options.RespectAudioFocus)
+        {
+            this.focus = new AudioFocusManager();
+            this.focus.FocusChanged += this.OnFocusChanged;
+        }
+
+        foreach (var backend in this.backends)
+        {
+            backend.StateChanged += this.OnBackendStateChanged;
+            backend.PlaybackCompleted += this.OnBackendCompleted;
+        }
+    }
+
+    public PlaybackState State => this.active?.State ?? PlaybackState.Stopped;
+    public MusicMetadata? CurrentTrack => this.active?.CurrentTrack;
+    public TimeSpan Position => this.active?.Position ?? TimeSpan.Zero;
+    public TimeSpan Duration => this.active?.Duration ?? TimeSpan.Zero;
     public bool IsDucked => this.activeDuck != null;
-
-    // Guarded on `prepared`: while a track is still preparing (async), CurrentPosition/Duration are not
-    // valid to read, so report Zero until the Prepared callback fires.
-    public TimeSpan Position =>
-        this.player != null && this.prepared ? TimeSpan.FromMilliseconds(this.player.CurrentPosition) : TimeSpan.Zero;
-
-    public TimeSpan Duration =>
-        this.player != null && this.prepared ? TimeSpan.FromMilliseconds(this.player.Duration) : TimeSpan.Zero;
 
     public event EventHandler<PlaybackState>? StateChanged;
     public event EventHandler? PlaybackCompleted;
 
+    /// <summary>
+    /// Raised whenever the player's observable state changes in a way the MediaSession must republish
+    /// (state, track, or position discontinuity). The foreground service subscribes to this to invalidate
+    /// its Media3 player state.
+    /// </summary>
+    internal event EventHandler? SessionInvalidated;
+
     AudioManager AudioManager => this.audioManager ??=
         (AudioManager)Application.Context.GetSystemService(Context.AudioService)!;
 
-    // Volume maps to the device-wide STREAM_MUSIC level, NOT the per-player MediaPlayer.SetVolume attenuation
-    // used for ducking (currentVolume). The two are orthogonal: ducking scales this player's own output, while
-    // Volume moves the system music volume that the hardware buttons control.
+    // Volume maps to the device-wide STREAM_MUSIC level, NOT the per-backend attenuation used for ducking.
+    // The two are orthogonal: ducking scales the active engine's own output, while Volume moves the system
+    // music volume that the hardware buttons control. Both are backend-independent, so neither regresses
+    // when a track routes to a different engine.
     public bool IsVolumeControlSupported => true;
 
     public float Volume
@@ -105,89 +142,73 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
         this.volumeChanged?.Invoke(this, max <= 0 ? 0f : step / (float)max);
     }
 
-    public Task PlayAsync(MusicMetadata track)
+    public async Task PlayAsync(MusicMetadata track)
     {
-        this.Stop();
+        var backend = this.backends.FirstOrDefault(x => x.CanPlay(track))
+            ?? throw new InvalidOperationException(
+                $"No playback backend can play track '{track.Id}'. Local tracks require a ContentUri; " +
+                "streaming catalog tracks require an additional backend package to be registered.");
 
-        var mp = new Android.Media.MediaPlayer();
-        this.player = mp;
-        mp.AudioSessionId = this.AudioSessionId;   // stable session so a VU Visualizer survives track changes
-        mp.SetAudioAttributes(
-            new AudioAttributes.Builder()!
-                .SetContentType(AudioContentType.Music)!
-                .SetUsage(AudioUsageKind.Media)!
-                .Build()!
-        );
+        // Switching engines: stop the outgoing one so two backends never render at once.
+        if (this.active != null && !ReferenceEquals(this.active, backend))
+            this.active.Stop();
 
-        var uri = Uri.Parse(track.ContentUri)!;
-        mp.SetDataSource(Application.Context, uri);
-        mp.Completion += this.OnPlaybackCompleted;
+        this.active = backend;
+        this.ResetDuckState();
 
-        // Prepare asynchronously so the call returns as soon as playback is *initiated*, rather than
-        // blocking the caller thread until the track is buffered/ready (which the synchronous Prepare()
-        // did). This matches the Apple implementation's fire-and-forget behaviour. Playback starts from
-        // the Prepared callback, guarded against a Stop()/new PlayAsync that swapped the player first.
-        mp.Prepared += (_, _) =>
-        {
-            if (!ReferenceEquals(this.player, mp))
-                return;   // superseded before preparation completed
-            try
-            {
-                this.prepared = true;
-                mp.Start();
-                this.SetState(PlaybackState.Playing);
-            }
-            catch (Java.Lang.IllegalStateException)
-            {
-                // player was torn down underneath us — ignore
-            }
-        };
-        mp.PrepareAsync();
+        // Take focus BEFORE starting, so another app's playback is stopped first rather than overlapping.
+        // A denied request is not fatal - some OEM builds refuse focus for short-lived requests - so we
+        // proceed rather than silently swallowing the play.
+        this.focus?.Request();
 
-        this.currentTrack = track;
-        _ = playCounts.IncrementAsync(track.Id);
-        return Task.CompletedTask;
+        // Ask for the notification permission here — while we are demonstrably in a user-initiated,
+        // foreground moment — but do NOT start the service yet. startForegroundService gives us roughly
+        // five seconds to call startForeground or the OS kills the app with
+        // ForegroundServiceDidNotStartInTimeException, and Media3 only posts its notification once the
+        // player is actually playing. PlayAsync returns as soon as playback is *initiated* (the backend
+        // prepares asynchronously), so starting the service here would race that deadline on a slow
+        // prepare. The service is started from OnBackendStateChanged instead, once the state is Playing.
+        if (this.options.EnableBackgroundPlayback)
+            await this.platform.RequestForegroundServicePermissions().ConfigureAwait(false);
+
+        await backend.PlayAsync(track).ConfigureAwait(false);
+
+        _ = this.playCounts.IncrementAsync(track.Id);
+        this.SessionInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
     public void Pause()
     {
-        if (this.player != null && this.state == PlaybackState.Playing)
-        {
-            this.player.Pause();
-            this.SetState(PlaybackState.Paused);
-        }
+        this.active?.Pause();
+        this.resumeOnFocusGain = false;   // a deliberate pause outranks a pending focus-resume
     }
 
-    public void Resume()
-    {
-        if (this.player != null && this.state == PlaybackState.Paused)
-        {
-            this.player.Start();
-            this.SetState(PlaybackState.Playing);
-        }
-    }
+    public void Resume() => this.active?.Resume();
 
     public void Stop()
     {
         this.ResetDuckState();
+        this.active?.Stop();
+        this.resumeOnFocusGain = false;
+        this.focus?.Abandon();
+        this.StopService();
+        this.SessionInvalidated?.Invoke(this, EventArgs.Empty);
+    }
 
-        if (this.player != null)
-        {
-            this.player.Completion -= this.OnPlaybackCompleted;
-            if (this.prepared && this.player.IsPlaying)
-                this.player.Stop();
-            this.player.Reset();
-            this.player.Release();
-            this.player = null;
-        }
-        this.prepared = false;
-        this.currentTrack = null;
-        this.SetState(PlaybackState.Stopped);
+    public void Seek(TimeSpan position)
+    {
+        this.active?.Seek(position);
+        this.SessionInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
     public IAsyncDisposable Duck(DuckOptions? options = null)
     {
-        if (this.player == null || this.state != PlaybackState.Playing)
+        if (this.active == null || this.State != PlaybackState.Playing)
+            return DuckScope.NoOp;
+
+        // An engine with no volume control (a DRM catalog player) cannot be lowered by us, and there is no
+        // system mechanism to duck our own playback. Report that honestly rather than pretending.
+        if (!this.active.IsVolumeAttenuationSupported)
             return DuckScope.NoOp;
 
         // Never layer ducks: while one is already active a second Duck() is a no-op, so there is
@@ -222,7 +243,7 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
         this.fadeCts = cts;
         var token = cts.Token;
 
-        var start = this.currentVolume;
+        var start = this.userDuck;
         var steps = duration <= TimeSpan.Zero ? 1 : Math.Max(1, (int)(duration.TotalMilliseconds / 15));
 
         try
@@ -230,8 +251,8 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
             for (var i = 1; i <= steps; i++)
             {
                 token.ThrowIfCancellationRequested();
-                var v = start + ((target - start) * (i / (float)steps));
-                this.SetVolume(v);
+                this.userDuck = start + ((target - start) * (i / (float)steps));
+                this.ApplyAttenuation();
                 if (i < steps)
                     await Task.Delay(15, token).ConfigureAwait(false);
             }
@@ -242,47 +263,128 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
         }
     }
 
-    void SetVolume(float volume)
-    {
-        this.currentVolume = volume;
-        this.player?.SetVolume(volume, volume);
-    }
+    // The effective attenuation is the lower of the application duck and the system duck, so whichever is
+    // quieter wins and neither can raise the volume while the other is still active.
+    void ApplyAttenuation() => this.active?.SetAttenuation(Math.Min(this.userDuck, this.osDuck));
 
-    public void Seek(TimeSpan position)
+    void OnFocusChanged(object? sender, AudioFocusEvent e)
     {
-        // Ignore seeks once stopped: a slice-loop's final poll can race in just after Stop(), and
-        // seeking a stopped/released MediaPlayer throws IllegalStateException (or could revive it).
-        // Also ignore before the track has finished preparing (seeking an unprepared player throws).
-        if (this.state == PlaybackState.Stopped || !this.prepared)
-            return;
+        switch (e)
+        {
+            case AudioFocusEvent.Lost:
+                // Permanent - another app owns playback now. Stop rather than pause; there is no resume.
+                this.Stop();
+                break;
 
-        this.player?.SeekTo((int)position.TotalMilliseconds);
+            case AudioFocusEvent.LostTransient:
+                if (this.State == PlaybackState.Playing)
+                {
+                    this.resumeOnFocusGain = this.options.AutoResumeAfterInterruption;
+                    this.active?.Pause();
+                }
+                break;
+
+            case AudioFocusEvent.Duck:
+                this.osDuck = (float)Math.Clamp(this.options.AudioFocusDuckLevel, 0d, 1d);
+                this.ApplyAttenuation();
+                break;
+
+            case AudioFocusEvent.Gained:
+                this.osDuck = 1f;
+                this.ApplyAttenuation();
+                if (this.resumeOnFocusGain)
+                {
+                    this.resumeOnFocusGain = false;
+                    this.active?.Resume();
+                }
+                break;
+        }
     }
 
     public IVuMeter CreateVuMeter(AudioLevels? implied = null, TimeSpan? interval = null)
     {
         var iv = interval ?? TimeSpan.FromMilliseconds(50);
 
-        // Prefer a real output tap (Visualizer) when the app holds RECORD_AUDIO; otherwise fall back to the
-        // implied meter (which needs the offline analysis).
-        if (VisualizerVuMeter.HasPermission())
+        // Prefer a real output tap (Visualizer) when the app holds RECORD_AUDIO and the active engine
+        // exposes a session id. A DRM engine exposes none, so those tracks always fall back to the implied
+        // meter - and since their audio also can't be decoded offline, that meter will be silent.
+        var sessionId = this.active?.AudioSessionId;
+        if (sessionId != null && VisualizerVuMeter.HasPermission())
         {
             try
             {
-                return new VisualizerVuMeter(this, this.AudioSessionId, iv);
+                return new VisualizerVuMeter(this, sessionId.Value, iv);
             }
             catch
             {
-                // Visualizer unavailable (missing manifest permission, device restriction) — fall back.
+                // Visualizer unavailable (missing manifest permission, device restriction) - fall back.
             }
         }
 
         return new SampledVuMeter(this, implied, iv);
     }
 
+    // Started only once the backend reports Playing, so Media3 can satisfy the startForeground deadline
+    // immediately (see the note in PlayAsync). Idempotent.
+    void StartServiceIfNeeded()
+    {
+        if (this.serviceRunning || !this.options.EnableBackgroundPlayback)
+            return;
+
+        this.platform.StartService(typeof(MusicPlaybackService), true);
+        this.serviceRunning = true;
+    }
+
+    void StopService()
+    {
+        if (!this.serviceRunning)
+            return;
+
+        this.platform.StopService(typeof(MusicPlaybackService));
+        this.serviceRunning = false;
+    }
+
+    void OnBackendStateChanged(object? sender, PlaybackState state)
+    {
+        // Ignore chatter from an engine we've already switched away from.
+        if (!ReferenceEquals(sender, this.active))
+            return;
+
+        if (state == PlaybackState.Playing)
+            this.StartServiceIfNeeded();
+
+        this.StateChanged?.Invoke(this, state);
+        this.SessionInvalidated?.Invoke(this, EventArgs.Empty);
+    }
+
+    void OnBackendCompleted(object? sender, EventArgs e)
+    {
+        if (!ReferenceEquals(sender, this.active))
+            return;
+
+        this.ResetDuckState();   // music stopped on its own - reset the duck if one is active
+        this.focus?.Abandon();
+        this.StopService();
+        this.PlaybackCompleted?.Invoke(this, EventArgs.Empty);
+        this.SessionInvalidated?.Invoke(this, EventArgs.Empty);
+    }
+
     public void Dispose()
     {
         this.Stop();
+
+        foreach (var backend in this.backends)
+        {
+            backend.StateChanged -= this.OnBackendStateChanged;
+            backend.PlaybackCompleted -= this.OnBackendCompleted;
+            backend.Dispose();
+        }
+
+        if (this.focus != null)
+        {
+            this.focus.FocusChanged -= this.OnFocusChanged;
+            this.focus.Dispose();
+        }
 
         if (this.volumeObserver != null)
         {
@@ -292,27 +394,15 @@ public class MusicPlayer(PlayCountStore playCounts) : IMusicPlayer
         }
     }
 
-    void SetState(PlaybackState newState)
-    {
-        this.state = newState;
-        this.StateChanged?.Invoke(this, newState);
-    }
-
-    void OnPlaybackCompleted(object? sender, EventArgs e)
-    {
-        this.ResetDuckState();   // music stopped on its own — reset the duck if one is active
-        this.SetState(PlaybackState.Stopped);
-        this.PlaybackCompleted?.Invoke(this, EventArgs.Empty);
-    }
-
-    // Clears any active duck and its in-flight fade, restoring the tracked volume. Idempotent —
+    // Clears any active duck and its in-flight fade, restoring both duck tracks. Idempotent -
     // safe to call when nothing is ducked.
     void ResetDuckState()
     {
         this.fadeCts?.Cancel();
         this.fadeCts = null;
         this.activeDuck = null;
-        this.currentVolume = 1f;
+        this.userDuck = 1f;
+        this.osDuck = 1f;
     }
 
     // Fires OnChange on the main looper whenever a system setting changes; OnSystemVolumeChanged filters to

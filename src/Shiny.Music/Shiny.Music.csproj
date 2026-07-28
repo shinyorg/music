@@ -27,6 +27,21 @@
         <!-- Android permission checks are handled by Shiny.Core's AndroidPlatform, which requires
              the consuming app to be running under Shiny hosting (UseShiny / ShinyAndroidApplication). -->
         <PackageReference Include="Shiny.Core"/>
+        <!-- Media3 supplies the MediaSession, the media notification, and the foreground-service plumbing
+             for background playback. SimpleBasePlayer (in .Common) is the adapter base that lets our own
+             playback backends drive a MediaSession without adopting ExoPlayer as the engine - ExoPlayer
+             cannot play DRM-protected catalog content, so the engine stays behind IPlaybackBackend. -->
+        <PackageReference Include="Xamarin.AndroidX.Media3.Session"/>
+        <PackageReference Include="Xamarin.AndroidX.Media3.Common"/>
+        <!-- Media3 pulls Core.Core.Ktx 1.17, but androidx.core 1.18+ absorbed the ktx classes into the main
+             artifact - so with a newer Core resolved alongside, R8 fails with "Type
+             androidx.core.animation.AnimatorKt$addListener$1 is defined multiple times". Pinning Core.Ktx to
+             match Core (where it is now an empty shim) is the fix, and it has to live here rather than in the
+             sample so consumers don't hit the same dex failure. -->
+        <PackageReference Include="Xamarin.AndroidX.Core.Core.Ktx"/>
+        <!-- The playback backend seam is internal on purpose: it is expected to move while the Apple Music
+             package is experimental, so it is not a public API commitment. -->
+        <InternalsVisibleTo Include="Shiny.Music.Android.AppleMusicKit"/>
     </ItemGroup>
 
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' Or $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">

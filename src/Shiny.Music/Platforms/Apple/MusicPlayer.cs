@@ -11,6 +11,10 @@ public class MusicPlayer : IMusicPlayer
     // Temporary diagnostics — writes to the iOS device console. Remove once stop behavior is confirmed.
     static void Log(string message) => Console.WriteLine($"[MusicPlayer] {message}");
 
+    readonly MusicPlayerOptions options;
+
+    public MusicPlayer(MusicPlayerOptions options) => this.options = options;
+
     // MPMusicPlayerController and AVAudioSession are main-thread-affine, and this player is driven
     // from two threads: the app/UI thread (Play/Stop/Duck/dispose + the OS playback-state observer)
     // and a background slice-loop that polls Position/State and calls Seek/Stop. To make that safe we
@@ -19,11 +23,13 @@ public class MusicPlayer : IMusicPlayer
     // ducking and Stop() behaved non-deterministically under a team walkout's concurrent load.
     readonly MPMusicPlayerController player = MPMusicPlayerController.ApplicationMusicPlayer;
     NSObject? stateObserver;
+    NSObject? interruptionObserver;
     IDisposable? volumeObserver;
     MusicMetadata? currentTrack;
     volatile PlaybackState state = PlaybackState.Stopped;
     bool explicitStop;
     bool observedPlaying;   // has the OS reported this track actually Playing since the last PlayCore?
+    bool resumeAfterInterruption;   // a call/alarm paused us and we owe the track a resume when it ends
 
     DuckScope? activeDuck;
     bool sessionActive;
@@ -147,6 +153,7 @@ public class MusicPlayer : IMusicPlayer
             return;
 
         this.player.Pause();
+        this.resumeAfterInterruption = false;   // a deliberate pause outranks a pending interruption resume
         this.SetState(PlaybackState.Paused);
     });
 
@@ -165,6 +172,7 @@ public class MusicPlayer : IMusicPlayer
     {
         Log($"StopCore ENTER main={NSThread.Current.IsMainThread} state={this.state} playerState={this.player.PlaybackState}");
         this.explicitStop = true;
+        this.resumeAfterInterruption = false;
         this.EndDuckCore();
         this.player.Stop();
         this.currentTrack = null;
@@ -296,11 +304,24 @@ public class MusicPlayer : IMusicPlayer
         this.stateObserver = NSNotificationCenter.DefaultCenter.AddObserver(
             MPMusicPlayerController.PlaybackStateDidChangeNotification,
             _ => this.OnPlaybackStateChanged());
+
+        // The playback-state observer above reports Interrupted, but never tells us when the interruption
+        // ENDS — so without this the track stayed paused after a phone call. AVAudioSession's interruption
+        // notification carries the ShouldResume hint the OS wants us to honor.
+        this.interruptionObserver = AVAudioSession.Notifications.ObserveInterruption(
+            (_, args) => this.OnInterruption(args));
+
         this.player.BeginGeneratingPlaybackNotifications();
     }
 
     void StopObserving()
     {
+        if (this.interruptionObserver != null)
+        {
+            NSNotificationCenter.DefaultCenter.RemoveObserver(this.interruptionObserver);
+            this.interruptionObserver = null;
+        }
+
         if (this.stateObserver != null)
         {
             this.player.EndGeneratingPlaybackNotifications();
@@ -308,6 +329,40 @@ public class MusicPlayer : IMusicPlayer
             this.stateObserver = null;
         }
     }
+
+    // Interruptions are delivered off the main thread; funnel through RunOnMain so they serialize with
+    // every other player operation, exactly like the playback-state observer.
+    void OnInterruption(AVAudioSessionInterruptionEventArgs args) => RunOnMain(() =>
+    {
+        Log($"Interruption {args.InterruptionType} option={args.Option} state={this.state}");
+
+        if (args.InterruptionType == AVAudioSessionInterruptionType.Began)
+        {
+            // Only owe a resume if we were actually playing — an interruption that lands while paused or
+            // stopped must not silently start the music when the call ends.
+            this.resumeAfterInterruption =
+                this.options.AutoResumeAfterInterruption && this.state == PlaybackState.Playing;
+
+            if (this.state == PlaybackState.Playing)
+                this.SetState(PlaybackState.Paused);
+
+            return;
+        }
+
+        if (!this.resumeAfterInterruption)
+            return;
+
+        this.resumeAfterInterruption = false;
+
+        // ShouldResume is the OS telling us it is polite to start again (a call ended, rather than the user
+        // switching to another audio app). Respect it; resuming without it steals audio from whatever took
+        // over.
+        if (!args.Option.HasFlag(AVAudioSessionInterruptionOptions.ShouldResume))
+            return;
+
+        this.player.Play();
+        this.SetState(PlaybackState.Playing);
+    });
 
     // The OS delivers this notification on the main thread, but funnel through RunOnMain anyway so it
     // is serialized with every other player operation regardless of delivery thread.
@@ -353,6 +408,13 @@ public class MusicPlayer : IMusicPlayer
                 break;
 
             case MPMusicPlaybackState.Interrupted:
+                // Belt-and-braces with the AVAudioSession interruption observer: the music player reports
+                // Interrupted reliably, whereas the session notification only reaches us once the session
+                // has been activated (ducking or volume observation). Either path can arm the resume; both
+                // clear the same flag, so a doubled signal is harmless.
+                if (this.options.AutoResumeAfterInterruption && this.state == PlaybackState.Playing)
+                    this.resumeAfterInterruption = true;
+
                 this.SetState(PlaybackState.Paused);
                 break;
         }
